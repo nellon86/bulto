@@ -1,0 +1,45 @@
+{
+  "id": "org.nuvio.dramasgay",
+  "version": "1.2.0",
+  "name": "Dramas gay",
+  "description": "Series de temática gay de Asia. Sin series de América ni de Europa.",
+  "resources": [
+    "catalog"
+  ],
+  "types": [
+    "series"
+  ],
+  "idPrefixes": [
+    "tt"
+  ],
+  "catalogs": [
+    {
+      "type": "series",
+      "id": "dramas-gay",
+      "name": "Dramas gay",
+      "extra": [
+        {
+          "name": "genre",
+          "isRequired": false,
+          "options": [
+            "Tailandia",
+            "Corea del Sur",
+            "Japón",
+            "Taiwán",
+            "China",
+            "Hong Kong",
+            "Filipinas"
+          ]
+        },
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    }
+  ],
+  "behaviorHints": {
+    "configurable": false,
+    "configurationRequired": false
+  }
+}
