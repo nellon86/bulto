@@ -1,0 +1,44 @@
+name: AniList catalog
+
+# Regenera el addon de Nuvio de la rama nuvio-anilist con datos de AniList.
+on:
+  schedule:
+    - cron: "17 * * * *" # cada hora
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: anilist-catalog
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: nuvio-anilist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generar catálogos
+        env:
+          ANILIST_USER: Haku86
+        run: node scripts/build.mjs
+
+      - name: Publicar si hay cambios
+        run: |
+          git add -A manifest.json catalog
+          if git diff --cached --quiet; then
+            echo "Sin cambios"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Actualizar catálogos de AniList"
+          git push origin HEAD:nuvio-anilist
