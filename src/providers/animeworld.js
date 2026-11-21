@@ -9,7 +9,7 @@ import { titleScore } from "../core/mapping.js";
 const BASE = "https://www.animeworld.ac";
 const HEADERS = { Referer: `${BASE}/` };
 
-async function search(q) {
+async function search(q, dub) {
   const html = await getText(`${BASE}/search?keyword=${encodeURIComponent(q)}`, { headers: HEADERS });
   const out = [];
   const re = /<a href="(\/play\/[^"]+)"[^>]*data-jtitle="([^"]*)"[^>]*class="name">([^<]*)<\/a>/g;
@@ -24,18 +24,22 @@ async function search(q) {
       if (href) out.push({ href, jtitle: decodeHtml((tag.match(/data-jtitle="([^"]*)"/) || [])[1] || ""), title: decodeHtml(tag.replace(/<[^>]+>/g, "")) });
     }
   }
-  // Fuera las versiones dobladas.
-  return out.filter((x) => !/\(ITA\)/i.test(x.title) && !/\(ITA\)/i.test(x.jtitle) && !/-ita\./i.test(x.href));
+  // Las fichas dobladas llevan "(ITA)" en el título y "-ita." en la dirección.
+  const isDub = (x) => /\(ITA\)/i.test(x.title) || /\(ITA\)/i.test(x.jtitle) || /-ita\./i.test(x.href);
+  return out.filter((x) => (dub ? isDub(x) : !isDub(x)));
 }
 
-async function findPage(ctx) {
+async function findPage(ctx, dub) {
   const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
   const seen = new Set();
   const ranked = lists
     .flat()
     .filter((r) => (seen.has(r.href) ? false : seen.add(r.href)))
-    .map((r) => ({ ...r, score: Math.max(titleScore(r.title, ctx), titleScore(r.jtitle, ctx)) }))
+    .map((r) => ({
+      ...r,
+      score: Math.max(titleScore(r.title.replace(/\s*\(ITA\)/i, ""), ctx), titleScore(r.jtitle.replace(/\s*\(ITA\)/i, ""), ctx)),
+    }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 4);
   // Abre las fichas candidatas en paralelo y se queda con la del ID correcto.
@@ -49,8 +53,8 @@ async function findPage(ctx) {
   return null;
 }
 
-async function run(ctx) {
-  const html = await findPage(ctx);
+export async function runFor(ctx, dub, providerId) {
+  const html = await findPage(ctx, dub);
   if (!html) return [];
   const ep = ctx.isMovie ? 1 : ctx.episode;
   const re = new RegExp(`data-episode-num="${ep}"[^>]*?data-id="([^"]+)"|data-id="([^"]+)"[^>]*?data-episode-num="${ep}"`);
@@ -71,9 +75,9 @@ async function run(ctx) {
   if (!url || !/^https?:/.test(url)) return [];
   return [
     makeStream(ctx, {
-      lang: "it",
+      lang: dub ? "it-dub" : "it",
       source: "AnimeWorld",
-      providerId: "animeworld",
+      providerId,
       url,
       quality: /1080/.test(url) ? "1080p" : "720p",
       format: guessFormat(url),
@@ -82,4 +86,4 @@ async function run(ctx) {
   ];
 }
 
-export const getStreams = defineProvider({ id: "animeworld", run });
+export const getStreams = defineProvider({ id: "animeworld", run: (ctx) => runFor(ctx, false, "animeworld") });

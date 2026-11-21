@@ -2,8 +2,16 @@
 
 import { UA } from "./http.js";
 
-const FLAGS = { en: "🇬🇧", es: "🇪🇸", it: "🇮🇹" };
-const LABEL = { en: "SUB EN", es: "SUB ESP", it: "SUB ITA" };
+const FLAGS = { en: "🇬🇧", es: "🇪🇸", it: "🇮🇹", "es-cast": "🇪🇸", "es-lat": "🇲🇽", "it-dub": "🇮🇹" };
+const LABEL = {
+  en: "SUB EN",
+  es: "SUB ESP",
+  it: "SUB ITA",
+  "es-cast": "DOBLAJE CASTELLANO",
+  "es-lat": "DOBLAJE LATINO",
+  "it-dub": "DOPPIAGGIO ITA",
+};
+const LANG_CODE = { en: "en", es: "es", it: "it", "es-cast": "es", "es-lat": "es", "it-dub": "it" };
 
 export function makeStream(ctx, opts) {
   const lang = opts.lang;
@@ -23,7 +31,7 @@ export function makeStream(ctx, opts) {
     title: lines.join("\n"),
     url: opts.url,
     quality,
-    language: lang,
+    language: LANG_CODE[lang] || lang,
     type: opts.format === "mp4" ? "mp4" : "m3u8",
     headers,
     provider: opts.providerId,

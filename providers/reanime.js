@@ -148,6 +148,11 @@ function uniq(list) {
   }
   return out;
 }
+function absoluteOf(zip, episode) {
+  const e = zip && zip.episodes && zip.episodes[String(episode)];
+  const abs = e && Number(e.absoluteEpisodeNumber);
+  return abs > 0 ? abs : Number(episode) || 1;
+}
 function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
   const media = mediaMap && mediaMap[anilistId] || null;
   const z = zip && zip.titles || {};
@@ -169,6 +174,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     anilistId: Number(anilistId),
     malId: malId ? Number(malId) : media && media.idMal || zip && zip.mappings && zip.mappings.mal_id || null,
     episode: Number(episode) || 1,
+    absoluteEpisode: absoluteOf(zip, episode),
     isMovie: !!extra.isMovie,
     format: media && media.format || null,
     episodeCount: media && media.episodes || null,
@@ -179,6 +185,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     native: media && media.title && media.title.native || z.ja || "",
     titles,
     titleEs: z.es || z["es-419"] || "",
+    titleEsLat: z["es-419"] || "",
     titleIt: z.it || "",
     display: extra.tmdbTitle || english || romaji,
     season: extra.season,
@@ -291,8 +298,16 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
 }
 
 // src/core/streams.js
-var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}" };
-var LABEL = { en: "SUB EN", es: "SUB ESP", it: "SUB ITA" };
+var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}", "es-cast": "\u{1F1EA}\u{1F1F8}", "es-lat": "\u{1F1F2}\u{1F1FD}", "it-dub": "\u{1F1EE}\u{1F1F9}" };
+var LABEL = {
+  en: "SUB EN",
+  es: "SUB ESP",
+  it: "SUB ITA",
+  "es-cast": "DOBLAJE CASTELLANO",
+  "es-lat": "DOBLAJE LATINO",
+  "it-dub": "DOPPIAGGIO ITA"
+};
+var LANG_CODE = { en: "en", es: "es", it: "it", "es-cast": "es", "es-lat": "es", "it-dub": "it" };
 function makeStream(ctx, opts) {
   const lang = opts.lang;
   const quality = normalizeQuality(opts.quality);
@@ -311,7 +326,7 @@ function makeStream(ctx, opts) {
     title: lines.join("\n"),
     url: opts.url,
     quality,
-    language: lang,
+    language: LANG_CODE[lang] || lang,
     type: opts.format === "mp4" ? "mp4" : "m3u8",
     headers,
     provider: opts.providerId

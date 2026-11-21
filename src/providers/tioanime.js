@@ -28,7 +28,7 @@ async function findSlug(ctx) {
   return null;
 }
 
-async function run(ctx) {
+export async function runFor(ctx, providerId) {
   const slug = await findSlug(ctx);
   if (!slug) return [];
   const html = await getText(`${BASE}/ver/${slug}-${ctx.isMovie ? 1 : ctx.episode}`);
@@ -51,7 +51,7 @@ async function run(ctx) {
         lang: "es",
         source: "TioAnime",
         server: s.server,
-        providerId: "tioanime",
+        providerId,
         url: r.url,
         quality: r.quality,
         format: r.format || guessFormat(r.url),
@@ -62,4 +62,4 @@ async function run(ctx) {
   return results.filter(Boolean);
 }
 
-export const getStreams = defineProvider({ id: "tioanime", run });
+export const getStreams = defineProvider({ id: "tioanime", run: (ctx) => runFor(ctx, "tioanime") });

@@ -1,0 +1,7 @@
+[
+  {"id":"dub-latanime","name":"🇪🇸 LatAnime DUB","lang":["es"],"description":"Doblaje castellano y latino desde LatAnime; si no hay, subtitulado en español.","logo":"https://latanime.org/favicon.ico"},
+  {"id":"dub-animeav1","name":"🇲🇽 AnimeAV1 DUB","lang":["es"],"description":"Doblaje latino desde AnimeAV1; si no hay, subtitulado en español.","logo":"https://animeav1.com/favicon.ico"},
+  {"id":"dub-tioanime","name":"🇪🇸 TioAnime SUB","lang":["es"],"description":"Subtitulado en español desde TioAnime (no tiene doblajes).","logo":"https://tioanime.com/favicon.ico"},
+  {"id":"dub-animeworld","name":"🇮🇹 AnimeWorld ITA","lang":["it"],"description":"Doblaggio italiano desde AnimeWorld (MP4 directo).","logo":"https://www.animeworld.ac/favicon.ico"},
+  {"id":"dub-animesaturn","name":"🇮🇹 AnimeSaturn ITA","lang":["it"],"description":"Doblaggio italiano desde AnimeSaturn.","logo":"https://www.animesaturn.net/favicon.ico"}
+]

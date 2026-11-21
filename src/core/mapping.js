@@ -99,6 +99,13 @@ function uniq(list) {
   return out;
 }
 
+// Número absoluto del episodio (contando las temporadas anteriores), según ani.zip.
+function absoluteOf(zip, episode) {
+  const e = zip && zip.episodes && zip.episodes[String(episode)];
+  const abs = e && Number(e.absoluteEpisodeNumber);
+  return abs > 0 ? abs : Number(episode) || 1;
+}
+
 // Contexto final que reciben los scrapers.
 function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
   const media = (mediaMap && mediaMap[anilistId]) || null;
@@ -121,6 +128,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     anilistId: Number(anilistId),
     malId: malId ? Number(malId) : (media && media.idMal) || (zip && zip.mappings && zip.mappings.mal_id) || null,
     episode: Number(episode) || 1,
+    absoluteEpisode: absoluteOf(zip, episode),
     isMovie: !!extra.isMovie,
     format: (media && media.format) || null,
     episodeCount: (media && media.episodes) || null,
@@ -131,6 +139,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     native: (media && media.title && media.title.native) || z.ja || "",
     titles,
     titleEs: z.es || z["es-419"] || "",
+    titleEsLat: z["es-419"] || "",
     titleIt: z.it || "",
     display: extra.tmdbTitle || english || romaji,
     season: extra.season,

@@ -6,7 +6,9 @@ const require = createRequire(import.meta.url);
 const CryptoJS = require("crypto-js");
 
 const only = process.argv[2] ? process.argv[2].split(",") : null;
-const providers = JSON.parse(fs.readFileSync("tools/providers.json", "utf8")).filter((p) => !only || only.includes(p.id));
+const providers = ["tools/providers.json", "tools/providers-dub.json"]
+  .flatMap((f) => JSON.parse(fs.readFileSync(f, "utf8")))
+  .filter((p) => !only || only.includes(p.id));
 const cases = JSON.parse(fs.readFileSync("tests/cases.json", "utf8"));
 
 function load(id) {

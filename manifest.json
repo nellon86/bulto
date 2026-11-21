@@ -1,6 +1,6 @@
 {
   "name": "Anime SUB (ES · IT · EN)",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Anime subtitulado en español, italiano e inglés. Sin doblajes.",
   "author": "nellon86",
   "scrapers": [
@@ -8,7 +8,7 @@
       "id": "animeav1",
       "name": "🇪🇸 AnimeAV1",
       "description": "Anime en VOSE (subtitulado en español) desde AnimeAV1.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -30,7 +30,7 @@
       "id": "tioanime",
       "name": "🇪🇸 TioAnime",
       "description": "Anime en VOSE (subtitulado en español) desde TioAnime.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -52,7 +52,7 @@
       "id": "animeworld",
       "name": "🇮🇹 AnimeWorld",
       "description": "Anime SUB ITA desde AnimeWorld (MP4 directo).",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -74,7 +74,7 @@
       "id": "animesaturn",
       "name": "🇮🇹 AnimeSaturn",
       "description": "Anime SUB ITA desde AnimeSaturn.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -96,7 +96,7 @@
       "id": "megaplay",
       "name": "🇬🇧 MegaPlay",
       "description": "Anime subtitulado en inglés desde MegaPlay (por ID de AniList/MAL).",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -118,7 +118,7 @@
       "id": "reanime",
       "name": "🇬🇧 Reanime",
       "description": "Anime subtitulado en inglés desde Reanime (FlixCloud).",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -140,7 +140,7 @@
       "id": "anizone",
       "name": "🌐 AniZone",
       "description": "Anime con subtítulos en varios idiomas desde AniZone.",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "nellon86",
       "supportedTypes": [
         "movie",

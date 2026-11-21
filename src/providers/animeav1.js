@@ -33,7 +33,7 @@ async function malIdOf(slug) {
   return media && media.malId !== undefined ? d[media.malId] : null;
 }
 
-async function findSlug(ctx) {
+export async function findSlug(ctx) {
   const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
   const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
   const seen = new Set();
@@ -50,34 +50,34 @@ async function findSlug(ctx) {
   return i >= 0 ? ranked[i].slug : null;
 }
 
-function subServers(html) {
+// Lista de servidores de un bloque ("SUB" o "DUB") del script de la página.
+export function serverList(html, lang) {
   const block = (html.match(/embeds:\s?\{((?:\w+:\s?\[.*?\],?)*)\}/) || [])[1];
-  const sub = block && (block.match(/\bSUB:\s?(\[.*?\])/) || [])[1];
-  if (!sub) return [];
+  const list = block && (block.match(new RegExp("\\b" + lang + ":\\s?(\\[.*?\\])")) || [])[1];
+  if (!list) return [];
   const out = [];
   const re = /server:"([^"]+)",url:"([^"]+)"/g;
   let m;
-  while ((m = re.exec(sub))) out.push({ server: m[1], url: m[2] });
-  return out;
+  while ((m = re.exec(list))) out.push({ server: m[1], url: m[2] });
+  return out.filter((s) => isSupported(s.url)).sort((a, b) => hostRank(a.url) - hostRank(b.url));
 }
 
-async function run(ctx) {
-  const slug = await findSlug(ctx);
-  if (!slug) return [];
-  const path = ctx.isMovie ? `${BASE}/media/${slug}/1` : `${BASE}/media/${slug}/${ctx.episode}`;
-  const html = await getText(path);
-  const servers = subServers(html).filter((s) => isSupported(s.url))
-    .sort((a, b) => hostRank(a.url) - hostRank(b.url));
-  log("servidores", servers.map((s) => s.server).join(","));
+export async function episodeHtml(ctx, slug) {
+  return getText(ctx.isMovie ? `${BASE}/media/${slug}/1` : `${BASE}/media/${slug}/${ctx.episode}`);
+}
+
+// Extrae los enlaces de una lista de servidores y les da formato.
+export async function toStreams(ctx, servers, lang, providerId) {
+  log("servidores", lang, servers.map((s) => s.server).join(","));
   const results = await settle(
     servers.map(async (s) => {
       const r = await extract(s.url, `${BASE}/`);
       if (!r) return null;
       return makeStream(ctx, {
-        lang: "es",
+        lang,
         source: "AnimeAV1",
-        server: s.server,
-        providerId: "animeav1",
+        server: r.server || s.server,
+        providerId,
         url: r.url,
         quality: r.quality,
         format: r.format || guessFormat(r.url),
@@ -86,6 +86,13 @@ async function run(ctx) {
     })
   );
   return results.filter(Boolean);
+}
+
+async function run(ctx) {
+  const slug = await findSlug(ctx);
+  if (!slug) return [];
+  const html = await episodeHtml(ctx, slug);
+  return toStreams(ctx, serverList(html, "SUB"), "es", "animeav1");
 }
 
 export const getStreams = defineProvider({ id: "animeav1", run });

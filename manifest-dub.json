@@ -1,0 +1,118 @@
+{
+  "name": "Anime DOBLADO (ES · IT)",
+  "version": "1.3.0",
+  "description": "Anime doblado en castellano, latino e italiano; si no hay doblaje español, subtitulado en español.",
+  "author": "nellon86",
+  "scrapers": [
+    {
+      "id": "dub-latanime",
+      "name": "🇪🇸 LatAnime DUB",
+      "description": "Doblaje castellano y latino desde LatAnime; si no hay, subtitulado en español.",
+      "version": "1.3.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dub-latanime.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://latanime.org/favicon.ico",
+      "contentLanguage": [
+        "es"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "dub-animeav1",
+      "name": "🇲🇽 AnimeAV1 DUB",
+      "description": "Doblaje latino desde AnimeAV1; si no hay, subtitulado en español.",
+      "version": "1.3.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dub-animeav1.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://animeav1.com/favicon.ico",
+      "contentLanguage": [
+        "es"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "dub-tioanime",
+      "name": "🇪🇸 TioAnime SUB",
+      "description": "Subtitulado en español desde TioAnime (no tiene doblajes).",
+      "version": "1.3.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dub-tioanime.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://tioanime.com/favicon.ico",
+      "contentLanguage": [
+        "es"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "dub-animeworld",
+      "name": "🇮🇹 AnimeWorld ITA",
+      "description": "Doblaggio italiano desde AnimeWorld (MP4 directo).",
+      "version": "1.3.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dub-animeworld.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://www.animeworld.ac/favicon.ico",
+      "contentLanguage": [
+        "it"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "dub-animesaturn",
+      "name": "🇮🇹 AnimeSaturn ITA",
+      "description": "Doblaggio italiano desde AnimeSaturn.",
+      "version": "1.3.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/dub-animesaturn.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://www.animesaturn.net/favicon.ico",
+      "contentLanguage": [
+        "it"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    }
+  ]
+}

@@ -21,7 +21,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/providers/animesaturn.js
 var animesaturn_exports = {};
 __export(animesaturn_exports, {
-  getStreams: () => getStreams
+  getStreams: () => getStreams,
+  runFor: () => runFor
 });
 module.exports = __toCommonJS(animesaturn_exports);
 
@@ -151,6 +152,11 @@ function uniq(list) {
   }
   return out;
 }
+function absoluteOf(zip, episode) {
+  const e = zip && zip.episodes && zip.episodes[String(episode)];
+  const abs = e && Number(e.absoluteEpisodeNumber);
+  return abs > 0 ? abs : Number(episode) || 1;
+}
 function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
   const media = mediaMap && mediaMap[anilistId] || null;
   const z = zip && zip.titles || {};
@@ -172,6 +178,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     anilistId: Number(anilistId),
     malId: malId ? Number(malId) : media && media.idMal || zip && zip.mappings && zip.mappings.mal_id || null,
     episode: Number(episode) || 1,
+    absoluteEpisode: absoluteOf(zip, episode),
     isMovie: !!extra.isMovie,
     format: media && media.format || null,
     episodeCount: media && media.episodes || null,
@@ -182,6 +189,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     native: media && media.title && media.title.native || z.ja || "",
     titles,
     titleEs: z.es || z["es-419"] || "",
+    titleEsLat: z["es-419"] || "",
     titleIt: z.it || "",
     display: extra.tmdbTitle || english || romaji,
     season: extra.season,
@@ -312,8 +320,16 @@ function titleScore(siteTitle, ctx) {
 }
 
 // src/core/streams.js
-var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}" };
-var LABEL = { en: "SUB EN", es: "SUB ESP", it: "SUB ITA" };
+var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}", "es-cast": "\u{1F1EA}\u{1F1F8}", "es-lat": "\u{1F1F2}\u{1F1FD}", "it-dub": "\u{1F1EE}\u{1F1F9}" };
+var LABEL = {
+  en: "SUB EN",
+  es: "SUB ESP",
+  it: "SUB ITA",
+  "es-cast": "DOBLAJE CASTELLANO",
+  "es-lat": "DOBLAJE LATINO",
+  "it-dub": "DOPPIAGGIO ITA"
+};
+var LANG_CODE = { en: "en", es: "es", it: "it", "es-cast": "es", "es-lat": "es", "it-dub": "it" };
 function makeStream(ctx, opts) {
   const lang = opts.lang;
   const quality = normalizeQuality(opts.quality);
@@ -332,7 +348,7 @@ function makeStream(ctx, opts) {
     title: lines.join("\n"),
     url: opts.url,
     quality,
-    language: lang,
+    language: LANG_CODE[lang] || lang,
     type: opts.format === "mp4" ? "mp4" : "m3u8",
     headers,
     provider: opts.providerId
@@ -364,7 +380,7 @@ function dedupe(list) {
 }
 
 // src/core/provider.js
-function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
+function defineProvider({ id, run, timeout = 25e3, titles = true }) {
   async function getStreams2(tmdbId, mediaType, season, episode) {
     setLogPrefix(`[${id}]`);
     const t0 = Date.now();
@@ -377,7 +393,7 @@ function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
         return [];
       }
       log(`mapeo ${ctx.anilistId}/${ctx.malId} ep ${ctx.episode} ${ctx.romaji || ""} (${tMap} ms)`);
-      const streams = await withTimeout(Promise.resolve(run2(ctx)), timeout, "scraper");
+      const streams = await withTimeout(Promise.resolve(run(ctx)), timeout, "scraper");
       const out = dedupe((streams || []).filter(Boolean));
       log(`fuentes ${out.length} en ${Date.now() - t0} ms (scraper ${Date.now() - t0 - tMap} ms)`);
       return out;
@@ -392,20 +408,21 @@ function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
 // src/providers/animesaturn.js
 var BASE = "https://www.animesaturn.net";
 var HEADERS = { Referer: `${BASE}/` };
-async function search(q) {
+async function search(q, dub) {
   const html = await getText(`${BASE}/filter?key=${encodeURIComponent(q)}`, { headers: HEADERS });
   const out = [];
   const re = /<a href="(\/anime\/[^"]+)" class="ac[^"]*">[\s\S]*?alt="([^"]*)"/g;
   let m;
   while (m = re.exec(html)) out.push({ href: m[1], title: decodeHtml(m[2]) });
   const seen = /* @__PURE__ */ new Set();
-  return out.filter((x) => !/-ita-[A-Za-z0-9]+$/.test(x.href) && (seen.has(x.href) ? false : seen.add(x.href)));
+  const isDub = (x) => /-ita-[A-Za-z0-9]+$/.test(x.href);
+  return out.filter((x) => (dub ? isDub(x) : !isDub(x)) && (seen.has(x.href) ? false : seen.add(x.href)));
 }
-async function findAnime(ctx) {
+async function findAnime(ctx, dub) {
   const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
   const seen = /* @__PURE__ */ new Set();
-  const ranked = lists.flat().filter((r) => seen.has(r.href) ? false : seen.add(r.href)).map((r) => ({ ...r, score: titleScore(r.title, ctx) })).sort((a, b) => b.score - a.score).slice(0, 4);
+  const ranked = lists.flat().filter((r) => seen.has(r.href) ? false : seen.add(r.href)).map((r) => ({ ...r, score: titleScore(r.title.replace(/\s*\(ITA\)/i, ""), ctx) })).sort((a, b) => b.score - a.score).slice(0, 4);
   const pages = await Promise.all(ranked.map((r) => getText(BASE + r.href, { headers: HEADERS }).catch(() => null)));
   for (let i = 0; i < pages.length; i++) {
     const html = pages[i];
@@ -422,8 +439,8 @@ function xorDecode(b64, key) {
   for (let i = 0; i < raw.length; i++) out += String.fromCharCode(raw.charCodeAt(i) ^ key.charCodeAt(i % key.length));
   return out;
 }
-async function run(ctx) {
-  const href = await findAnime(ctx);
+async function runFor(ctx, dub, providerId) {
+  const href = await findAnime(ctx, dub);
   if (!href) return [];
   const page = await getText(`${BASE}${href}/ep-${ctx.isMovie ? 1 : ctx.episode}`, { headers: HEADERS });
   const iframe = (page.match(/id="watch-iframe"\s+src="([^"]+)"/) || [])[1];
@@ -450,9 +467,9 @@ async function run(ctx) {
   }
   return [
     makeStream(ctx, {
-      lang: "it",
+      lang: dub ? "it-dub" : "it",
       source: "AnimeSaturn",
-      providerId: "animesaturn",
+      providerId,
       url: src,
       quality: "1080p",
       format: guessFormat(src),
@@ -460,4 +477,4 @@ async function run(ctx) {
     })
   ];
 }
-var getStreams = defineProvider({ id: "animesaturn", run });
+var getStreams = defineProvider({ id: "animesaturn", run: (ctx) => runFor(ctx, false, "animesaturn") });

@@ -9,25 +9,26 @@ import { titleScore } from "../core/mapping.js";
 const BASE = "https://www.animesaturn.net";
 const HEADERS = { Referer: `${BASE}/` };
 
-async function search(q) {
+async function search(q, dub) {
   const html = await getText(`${BASE}/filter?key=${encodeURIComponent(q)}`, { headers: HEADERS });
   const out = [];
   const re = /<a href="(\/anime\/[^"]+)" class="ac[^"]*">[\s\S]*?alt="([^"]*)"/g;
   let m;
   while ((m = re.exec(html))) out.push({ href: m[1], title: decodeHtml(m[2]) });
   const seen = new Set();
-  // Fuera las fichas dobladas (terminan en "-ita-XXXXX").
-  return out.filter((x) => !/-ita-[A-Za-z0-9]+$/.test(x.href) && (seen.has(x.href) ? false : seen.add(x.href)));
+  // Las fichas dobladas terminan en "-ita-XXXXX".
+  const isDub = (x) => /-ita-[A-Za-z0-9]+$/.test(x.href);
+  return out.filter((x) => (dub ? isDub(x) : !isDub(x)) && (seen.has(x.href) ? false : seen.add(x.href)));
 }
 
-async function findAnime(ctx) {
+async function findAnime(ctx, dub) {
   const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
   const seen = new Set();
   const ranked = lists
     .flat()
     .filter((r) => (seen.has(r.href) ? false : seen.add(r.href)))
-    .map((r) => ({ ...r, score: titleScore(r.title, ctx) }))
+    .map((r) => ({ ...r, score: titleScore(r.title.replace(/\s*\(ITA\)/i, ""), ctx) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 4);
   const pages = await Promise.all(ranked.map((r) => getText(BASE + r.href, { headers: HEADERS }).catch(() => null)));
@@ -48,8 +49,8 @@ function xorDecode(b64, key) {
   return out;
 }
 
-async function run(ctx) {
-  const href = await findAnime(ctx);
+export async function runFor(ctx, dub, providerId) {
+  const href = await findAnime(ctx, dub);
   if (!href) return [];
   const page = await getText(`${BASE}${href}/ep-${ctx.isMovie ? 1 : ctx.episode}`, { headers: HEADERS });
   const iframe = (page.match(/id="watch-iframe"\s+src="([^"]+)"/) || [])[1];
@@ -76,9 +77,9 @@ async function run(ctx) {
   }
   return [
     makeStream(ctx, {
-      lang: "it",
+      lang: dub ? "it-dub" : "it",
       source: "AnimeSaturn",
-      providerId: "animesaturn",
+      providerId,
       url: src,
       quality: "1080p",
       format: guessFormat(src),
@@ -87,4 +88,4 @@ async function run(ctx) {
   ];
 }
 
-export const getStreams = defineProvider({ id: "animesaturn", run });
+export const getStreams = defineProvider({ id: "animesaturn", run: (ctx) => runFor(ctx, false, "animesaturn") });

@@ -21,7 +21,11 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/providers/animeav1.js
 var animeav1_exports = {};
 __export(animeav1_exports, {
-  getStreams: () => getStreams
+  episodeHtml: () => episodeHtml,
+  findSlug: () => findSlug,
+  getStreams: () => getStreams,
+  serverList: () => serverList,
+  toStreams: () => toStreams
 });
 module.exports = __toCommonJS(animeav1_exports);
 
@@ -159,6 +163,11 @@ function uniq(list) {
   }
   return out;
 }
+function absoluteOf(zip, episode) {
+  const e = zip && zip.episodes && zip.episodes[String(episode)];
+  const abs = e && Number(e.absoluteEpisodeNumber);
+  return abs > 0 ? abs : Number(episode) || 1;
+}
 function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
   const media = mediaMap && mediaMap[anilistId] || null;
   const z = zip && zip.titles || {};
@@ -180,6 +189,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     anilistId: Number(anilistId),
     malId: malId ? Number(malId) : media && media.idMal || zip && zip.mappings && zip.mappings.mal_id || null,
     episode: Number(episode) || 1,
+    absoluteEpisode: absoluteOf(zip, episode),
     isMovie: !!extra.isMovie,
     format: media && media.format || null,
     episodeCount: media && media.episodes || null,
@@ -190,6 +200,7 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     native: media && media.title && media.title.native || z.ja || "",
     titles,
     titleEs: z.es || z["es-419"] || "",
+    titleEsLat: z["es-419"] || "",
     titleIt: z.it || "",
     display: extra.tmdbTitle || english || romaji,
     season: extra.season,
@@ -320,8 +331,16 @@ function titleScore(siteTitle, ctx) {
 }
 
 // src/core/streams.js
-var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}" };
-var LABEL = { en: "SUB EN", es: "SUB ESP", it: "SUB ITA" };
+var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}", "es-cast": "\u{1F1EA}\u{1F1F8}", "es-lat": "\u{1F1F2}\u{1F1FD}", "it-dub": "\u{1F1EE}\u{1F1F9}" };
+var LABEL = {
+  en: "SUB EN",
+  es: "SUB ESP",
+  it: "SUB ITA",
+  "es-cast": "DOBLAJE CASTELLANO",
+  "es-lat": "DOBLAJE LATINO",
+  "it-dub": "DOPPIAGGIO ITA"
+};
+var LANG_CODE = { en: "en", es: "es", it: "it", "es-cast": "es", "es-lat": "es", "it-dub": "it" };
 function makeStream(ctx, opts) {
   const lang = opts.lang;
   const quality = normalizeQuality(opts.quality);
@@ -340,7 +359,7 @@ function makeStream(ctx, opts) {
     title: lines.join("\n"),
     url: opts.url,
     quality,
-    language: lang,
+    language: LANG_CODE[lang] || lang,
     type: opts.format === "mp4" ? "mp4" : "m3u8",
     headers,
     provider: opts.providerId
@@ -525,32 +544,30 @@ async function findSlug(ctx) {
   const i = mals.findIndex((m) => Number(m) === Number(ctx.malId));
   return i >= 0 ? ranked[i].slug : null;
 }
-function subServers(html) {
+function serverList(html, lang) {
   const block = (html.match(/embeds:\s?\{((?:\w+:\s?\[.*?\],?)*)\}/) || [])[1];
-  const sub = block && (block.match(/\bSUB:\s?(\[.*?\])/) || [])[1];
-  if (!sub) return [];
+  const list = block && (block.match(new RegExp("\\b" + lang + ":\\s?(\\[.*?\\])")) || [])[1];
+  if (!list) return [];
   const out = [];
   const re = /server:"([^"]+)",url:"([^"]+)"/g;
   let m;
-  while (m = re.exec(sub)) out.push({ server: m[1], url: m[2] });
-  return out;
+  while (m = re.exec(list)) out.push({ server: m[1], url: m[2] });
+  return out.filter((s) => isSupported(s.url)).sort((a, b) => hostRank(a.url) - hostRank(b.url));
 }
-async function run(ctx) {
-  const slug = await findSlug(ctx);
-  if (!slug) return [];
-  const path = ctx.isMovie ? `${BASE}/media/${slug}/1` : `${BASE}/media/${slug}/${ctx.episode}`;
-  const html = await getText(path);
-  const servers = subServers(html).filter((s) => isSupported(s.url)).sort((a, b) => hostRank(a.url) - hostRank(b.url));
-  log("servidores", servers.map((s) => s.server).join(","));
+async function episodeHtml(ctx, slug) {
+  return getText(ctx.isMovie ? `${BASE}/media/${slug}/1` : `${BASE}/media/${slug}/${ctx.episode}`);
+}
+async function toStreams(ctx, servers, lang, providerId) {
+  log("servidores", lang, servers.map((s) => s.server).join(","));
   const results = await settle(
     servers.map(async (s) => {
       const r = await extract(s.url, `${BASE}/`);
       if (!r) return null;
       return makeStream(ctx, {
-        lang: "es",
+        lang,
         source: "AnimeAV1",
-        server: s.server,
-        providerId: "animeav1",
+        server: r.server || s.server,
+        providerId,
         url: r.url,
         quality: r.quality,
         format: r.format || guessFormat(r.url),
@@ -559,5 +576,11 @@ async function run(ctx) {
     })
   );
   return results.filter(Boolean);
+}
+async function run(ctx) {
+  const slug = await findSlug(ctx);
+  if (!slug) return [];
+  const html = await episodeHtml(ctx, slug);
+  return toStreams(ctx, serverList(html, "SUB"), "es", "animeav1");
 }
 var getStreams = defineProvider({ id: "animeav1", run });
