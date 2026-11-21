@@ -300,7 +300,7 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
   return ctx(candidates.indexOf(bySeason), E);
 }
 function norm(s) {
-  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\b(the|tv|season|part|cour)\b/g, " ").replace(/\s+/g, " ").trim();
+  return String(s || "").toLowerCase().replace(/×/g, " x ").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\b(the|tv|season|part|cour)\b/g, " ").replace(/\s+/g, " ").trim();
 }
 function titleScore(siteTitle, ctx) {
   const t = norm(siteTitle);
@@ -316,6 +316,17 @@ function titleScore(siteTitle, ctx) {
     }
   }
   return best;
+}
+function cleanQuery(q) {
+  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+}
+function searchQueries(ctx, max = 2) {
+  const out = [];
+  for (const t of [ctx.romaji, ctx.english]) {
+    const q = cleanQuery(t);
+    if (q && !out.some((x) => x.toLowerCase() === q.toLowerCase())) out.push(q);
+  }
+  return out.slice(0, max);
 }
 
 // src/core/streams.js
@@ -418,7 +429,7 @@ async function search(q, dub) {
   return out.filter((x) => (dub ? isDub(x) : !isDub(x)) && (seen.has(x.href) ? false : seen.add(x.href)));
 }
 async function findAnime(ctx, dub) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const queries = searchQueries(ctx);
   const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
   const seen = /* @__PURE__ */ new Set();
   const ranked = lists.flat().filter((r) => seen.has(r.href) ? false : seen.add(r.href)).map((r) => ({ ...r, score: titleScore(r.title.replace(/\s*\(ITA\)/i, ""), ctx) })).sort((a, b) => b.score - a.score).slice(0, 4);

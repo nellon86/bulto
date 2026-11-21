@@ -72,6 +72,12 @@ function origin(url) {
   const m = String(url).match(/^(https?:\/\/[^/]+)/i);
   return m ? m[1] : "";
 }
+function absolute(base, path) {
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  if (path.startsWith("//")) return "https:" + path;
+  return origin(base) + (path.startsWith("/") ? "" : "/") + path;
+}
 function decodeHtml(s) {
   return String(s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x27;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 }
@@ -311,7 +317,7 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
   return ctx(candidates.indexOf(bySeason), E);
 }
 function norm(s) {
-  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\b(the|tv|season|part|cour)\b/g, " ").replace(/\s+/g, " ").trim();
+  return String(s || "").toLowerCase().replace(/×/g, " x ").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\b(the|tv|season|part|cour)\b/g, " ").replace(/\s+/g, " ").trim();
 }
 function titleScore(siteTitle, ctx) {
   const t = norm(siteTitle);
@@ -327,6 +333,17 @@ function titleScore(siteTitle, ctx) {
     }
   }
   return best;
+}
+function cleanQuery(q) {
+  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+}
+function searchQueries(ctx, max = 2) {
+  const out = [];
+  for (const t of [ctx.romaji, ctx.english]) {
+    const q = cleanQuery(t);
+    if (q && !out.some((x) => x.toLowerCase() === q.toLowerCase())) out.push(q);
+  }
+  return out.slice(0, max);
 }
 
 // src/core/streams.js
@@ -474,10 +491,72 @@ async function packedPlayer(url, referer) {
   if (!media) return null;
   return { url: media, headers: { Referer: origin(url) + "/", Origin: origin(url) }, quality: "HD", format: "m3u8" };
 }
+function voeDecode(enc, noise) {
+  let t = enc.replace(/[a-zA-Z]/g, (c) => {
+    const top = c <= "Z" ? 90 : 122;
+    const n = c.charCodeAt(0) + 13;
+    return String.fromCharCode(n <= top ? n : n - 26);
+  });
+  for (const x of noise || ["@$", "^^", "~@", "%?", "*~", "!!", "#&"]) t = t.split(x).join("");
+  try {
+    const step = atob(t);
+    let shifted = "";
+    for (let i = 0; i < step.length; i++) shifted += String.fromCharCode(step.charCodeAt(i) - 3);
+    return JSON.parse(atob(shifted.split("").reverse().join("")));
+  } catch (_) {
+    return null;
+  }
+}
+async function voe(url, referer) {
+  let current = url;
+  let html = "";
+  for (let i = 0; i < 3; i++) {
+    const res = await request(current, { headers: { Referer: i === 0 && referer ? referer : current }, timeout: 6e3 });
+    if (!res.ok) return null;
+    html = await res.text();
+    if (res.url) current = res.url;
+    const jump = html.length < 4e3 && html.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/i);
+    if (!jump) break;
+    current = absolute(current, jump[1]);
+  }
+  const headers = { Referer: origin(current) + "/" };
+  const block = html.match(/<script type="application\/json">([\s\S]*?)<\/script>(?:\s*<script[^>]*src=["']([^"']+)["'])?/i);
+  if (block) {
+    let enc = "";
+    try {
+      const d = JSON.parse(block[1].trim());
+      enc = Array.isArray(d) ? d[0] : d;
+    } catch (_) {
+    }
+    let data = enc ? voeDecode(enc) : null;
+    if (!data && enc && block[2]) {
+      const loader = await getText(absolute(current, block[2]), { headers: { Referer: current }, timeout: 5e3 }).catch(() => "");
+      const list = (loader.match(/\[(?:\s*'[^']{1,10}'\s*,?){4,12}\]/) || loader.match(/\[(?:\s*"[^"]{1,10}"\s*,?){4,12}\]/) || [])[0];
+      if (list) data = voeDecode(enc, (list.match(/['"]([^'"]{1,10})['"]/g) || []).map((x) => x.slice(1, -1)));
+    }
+    const video = data && (data.source || data.direct_access_url);
+    if (video) return { url: video, headers, quality: "720p", format: /\.mp4/.test(video) ? "mp4" : "m3u8" };
+  }
+  const hls = html.match(/['"]hls['"]\s*:\s*['"]([^'"]+)['"]/i);
+  if (hls) {
+    const v = /^aHR0/.test(hls[1]) ? atob(hls[1]) : hls[1];
+    return { url: v, headers, quality: "720p", format: "m3u8" };
+  }
+  return null;
+}
+async function uqload(url, referer) {
+  const embed = /embed-/.test(url) ? url : url.replace(/(uqloads?\.[a-z]+\/)(?!embed-)/, "$1embed-");
+  const html = await getText(embed, { headers: { Referer: referer || embed }, timeout: 6e3 });
+  const m = html.match(/sources\s*:\s*\[\s*["']([^"']+)["']/);
+  if (!m || !/^https?:\/\//.test(m[1])) return null;
+  return { url: m[1], headers: { Referer: origin(embed) + "/" }, quality: "HD", format: /\.mp4/.test(m[1]) ? "mp4" : "m3u8" };
+}
 var HOSTS = [
   { re: /yourupload\.com/i, name: "YourUpload", fn: yourUpload },
   { re: /mp4upload\.com/i, name: "MP4Upload", fn: mp4Upload },
   { re: /zilla-networks\.com/i, name: "Zilla", fn: zilla },
+  { re: /voe\.sx|voe-unblock|voeunbl|\/\/voe\./i, name: "Voe", fn: voe },
+  { re: /uqloads?\./i, name: "Uqload", fn: uqload },
   {
     re: /(vidhide|ryderjet|callistanise|filelions|streamwish|swdyu|wishembed|strwish|playerwish|dhcplay|hlswish|mivalyo|dinisglows|vidhidepro|vidhidevip|cdnwish)/i,
     name: "VidHide",
@@ -485,7 +564,7 @@ var HOSTS = [
   }
 ];
 function hostRank(url) {
-  const order = ["YourUpload", "MP4Upload", "VidHide", "Zilla"];
+  const order = ["YourUpload", "MP4Upload", "VidHide", "Voe", "Uqload", "Zilla"];
   const name = hostName(url);
   const i = order.indexOf(name);
   return i < 0 ? 99 : i;
@@ -521,7 +600,7 @@ async function search(q) {
   return out;
 }
 async function findSlug(ctx) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const queries = searchQueries(ctx);
   const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
   for (const results of lists) {
     const ranked = results.map((r) => ({ ...r, score: titleScore(r.title, ctx) })).sort((a, b) => b.score - a.score);

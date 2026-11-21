@@ -276,6 +276,7 @@ export async function resolveAnime(rawId, mediaType, season, episode, opts = {})
 export function norm(s) {
   return String(s || "")
     .toLowerCase()
+    .replace(/×/g, " x ")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/&/g, " and ")
@@ -300,4 +301,24 @@ export function titleScore(siteTitle, ctx) {
     }
   }
   return best;
+}
+
+// Texto de búsqueda sin signos: muchos buscadores fallan con "×", ":" o ".".
+export function cleanQuery(q) {
+  return String(q || "")
+    .replace(/×/g, " x ")
+    .replace(/['’]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Consultas para buscar por título (romaji e inglés, limpias y sin repetir).
+export function searchQueries(ctx, max = 2) {
+  const out = [];
+  for (const t of [ctx.romaji, ctx.english]) {
+    const q = cleanQuery(t);
+    if (q && !out.some((x) => x.toLowerCase() === q.toLowerCase())) out.push(q);
+  }
+  return out.slice(0, max);
 }

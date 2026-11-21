@@ -4,7 +4,7 @@
 import { getText, getJson, log, settle } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
-import { titleScore } from "../core/mapping.js";
+import { titleScore, searchQueries } from "../core/mapping.js";
 import { extract, isSupported, hostRank } from "../core/extractors.js";
 
 const BASE = "https://animeav1.com";
@@ -34,7 +34,7 @@ async function malIdOf(slug) {
 }
 
 export async function findSlug(ctx) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const queries = searchQueries(ctx);
   const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
   const seen = new Set();
   const ranked = lists

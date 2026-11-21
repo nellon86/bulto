@@ -4,7 +4,7 @@
 import { getText, getJson, log, decodeHtml } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
-import { titleScore } from "../core/mapping.js";
+import { titleScore, searchQueries } from "../core/mapping.js";
 
 const BASE = "https://www.animesaturn.net";
 const HEADERS = { Referer: `${BASE}/` };
@@ -22,7 +22,7 @@ async function search(q, dub) {
 }
 
 async function findAnime(ctx, dub) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const queries = searchQueries(ctx);
   const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
   const seen = new Set();
   const ranked = lists

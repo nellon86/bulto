@@ -1,7 +1,7 @@
 // Extractores de servidores de vídeo externos: reciben la URL del reproductor
 // incrustado y devuelven { url, headers, quality } o null.
 
-import { getText, origin, log } from "./http.js";
+import { getText, request, origin, absolute, log } from "./http.js";
 
 // Desempaqueta código "eval(function(p,a,c,k,e,d)...)".
 export function unpack(source) {
@@ -70,10 +70,76 @@ async function packedPlayer(url, referer) {
   return { url: media, headers: { Referer: origin(url) + "/", Origin: origin(url) }, quality: "HD", format: "m3u8" };
 }
 
+// Voe: la página trae un bloque JSON cifrado (ROT13 + base64 + desplazamiento).
+// Si la página pide resolver un desafío (Altcha), se descarta: es lento.
+function voeDecode(enc, noise) {
+  let t = enc.replace(/[a-zA-Z]/g, (c) => {
+    const top = c <= "Z" ? 90 : 122;
+    const n = c.charCodeAt(0) + 13;
+    return String.fromCharCode(n <= top ? n : n - 26);
+  });
+  for (const x of noise || ["@$", "^^", "~@", "%?", "*~", "!!", "#&"]) t = t.split(x).join("");
+  try {
+    const step = atob(t);
+    let shifted = "";
+    for (let i = 0; i < step.length; i++) shifted += String.fromCharCode(step.charCodeAt(i) - 3);
+    return JSON.parse(atob(shifted.split("").reverse().join("")));
+  } catch (_) {
+    return null;
+  }
+}
+
+async function voe(url, referer) {
+  let current = url;
+  let html = "";
+  for (let i = 0; i < 3; i++) {
+    const res = await request(current, { headers: { Referer: i === 0 && referer ? referer : current }, timeout: 6000 });
+    if (!res.ok) return null;
+    html = await res.text();
+    if (res.url) current = res.url;
+    const jump = html.length < 4000 && html.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/i);
+    if (!jump) break;
+    current = absolute(current, jump[1]);
+  }
+  const headers = { Referer: origin(current) + "/" };
+  const block = html.match(/<script type="application\/json">([\s\S]*?)<\/script>(?:\s*<script[^>]*src=["']([^"']+)["'])?/i);
+  if (block) {
+    let enc = "";
+    try {
+      const d = JSON.parse(block[1].trim());
+      enc = Array.isArray(d) ? d[0] : d;
+    } catch (_) {}
+    let data = enc ? voeDecode(enc) : null;
+    if (!data && enc && block[2]) {
+      const loader = await getText(absolute(current, block[2]), { headers: { Referer: current }, timeout: 5000 }).catch(() => "");
+      const list = (loader.match(/\[(?:\s*'[^']{1,10}'\s*,?){4,12}\]/) || loader.match(/\[(?:\s*"[^"]{1,10}"\s*,?){4,12}\]/) || [])[0];
+      if (list) data = voeDecode(enc, (list.match(/['"]([^'"]{1,10})['"]/g) || []).map((x) => x.slice(1, -1)));
+    }
+    const video = data && (data.source || data.direct_access_url);
+    if (video) return { url: video, headers, quality: "720p", format: /\.mp4/.test(video) ? "mp4" : "m3u8" };
+  }
+  const hls = html.match(/['"]hls['"]\s*:\s*['"]([^'"]+)['"]/i);
+  if (hls) {
+    const v = /^aHR0/.test(hls[1]) ? atob(hls[1]) : hls[1];
+    return { url: v, headers, quality: "720p", format: "m3u8" };
+  }
+  return null;
+}
+
+async function uqload(url, referer) {
+  const embed = /embed-/.test(url) ? url : url.replace(/(uqloads?\.[a-z]+\/)(?!embed-)/, "$1embed-");
+  const html = await getText(embed, { headers: { Referer: referer || embed }, timeout: 6000 });
+  const m = html.match(/sources\s*:\s*\[\s*["']([^"']+)["']/);
+  if (!m || !/^https?:\/\//.test(m[1])) return null;
+  return { url: m[1], headers: { Referer: origin(embed) + "/" }, quality: "HD", format: /\.mp4/.test(m[1]) ? "mp4" : "m3u8" };
+}
+
 const HOSTS = [
   { re: /yourupload\.com/i, name: "YourUpload", fn: yourUpload },
   { re: /mp4upload\.com/i, name: "MP4Upload", fn: mp4Upload },
   { re: /zilla-networks\.com/i, name: "Zilla", fn: zilla },
+  { re: /voe\.sx|voe-unblock|voeunbl|\/\/voe\./i, name: "Voe", fn: voe },
+  { re: /uqloads?\./i, name: "Uqload", fn: uqload },
   {
     re: /(vidhide|ryderjet|callistanise|filelions|streamwish|swdyu|wishembed|strwish|playerwish|dhcplay|hlswish|mivalyo|dinisglows|vidhidepro|vidhidevip|cdnwish)/i,
     name: "VidHide",
@@ -83,7 +149,7 @@ const HOSTS = [
 
 // Orden de preferencia: primero los más fiables.
 export function hostRank(url) {
-  const order = ["YourUpload", "MP4Upload", "VidHide", "Zilla"];
+  const order = ["YourUpload", "MP4Upload", "VidHide", "Voe", "Uqload", "Zilla"];
   const name = hostName(url);
   const i = order.indexOf(name);
   return i < 0 ? 99 : i;
