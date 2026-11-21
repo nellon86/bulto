@@ -2,7 +2,7 @@
 import { build } from "esbuild";
 import fs from "node:fs";
 
-const pkgVersion = "1.4.1";
+const pkgVersion = "1.4.2";
 fs.mkdirSync("providers", { recursive: true });
 const banner = "// Generado desde src/ con tools/build.mjs. No editar a mano.\n";
 
