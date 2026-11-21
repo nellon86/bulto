@@ -32,3 +32,17 @@ node tools/test.mjs animeworld,megaplay   # solo algunos
 ```
 
 El workflow `test-scrapers` repite las pruebas en GitHub Actions en cada cambio y cada lunes. AniZone y FlixCloud (Reanime) bloquean las IP de centros de datos, así que allí salen vacíos aunque funcionen desde casa.
+
+## Versión doblada (repositorio aparte)
+
+URL para Nuvio: `https://raw.githubusercontent.com/nellon86/bulto/nuvio-anime/manifest-dub.json`
+
+| Scraper | Devuelve |
+|---|---|
+| 🇪🇸 LatAnime DUB | Doblaje castellano y latino; si no hay ninguno, subtitulado en español |
+| 🇲🇽 AnimeAV1 DUB | Doblaje latino; si no hay, subtitulado en español |
+| 🇪🇸 TioAnime SUB | Subtitulado en español (el sitio no tiene doblajes) |
+| 🇮🇹 AnimeWorld ITA | Doblaje italiano, sin alternativa |
+| 🇮🇹 AnimeSaturn ITA | Doblaje italiano, sin alternativa |
+
+LatAnime no se puede probar desde GitHub Actions (Cloudflare); funciona desde casa.
