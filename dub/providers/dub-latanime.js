@@ -399,6 +399,53 @@ function dedupe(list) {
     return true;
   });
 }
+async function pickBestVariant(stream, fetchText) {
+  if (!stream || stream.type !== "m3u8") return stream;
+  let text;
+  try {
+    text = await fetchText(stream.url, stream.headers);
+  } catch (_) {
+    return stream;
+  }
+  if (!text || !/#EXT-X-STREAM-INF/i.test(text)) return stream;
+  if (/#EXT-X-MEDIA:[^\n]*TYPE=(AUDIO|SUBTITLES)[^\n]*URI=/i.test(text)) return stream;
+  const lines = text.split(/\r?\n/);
+  let best = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^#EXT-X-STREAM-INF/i.test(lines[i])) continue;
+    let uri = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j].trim();
+      if (l && !l.startsWith("#")) {
+        uri = l;
+        break;
+      }
+    }
+    if (!uri) continue;
+    const h = Number((lines[i].match(/RESOLUTION=\d+x(\d+)/i) || [])[1] || 0);
+    const bw = Number((lines[i].match(/[^-]BANDWIDTH=(\d+)/i) || [])[1] || 0);
+    if (!best || h > best.h || h === best.h && bw > best.bw) best = { h, bw, uri };
+  }
+  if (!best) return stream;
+  const url = resolveUrl(stream.url, best.uri);
+  const quality = best.h ? normalizeQuality(`${best.h}p`) : stream.quality;
+  const title = stream.title && stream.quality ? stream.title.replace(` \xB7 ${stream.quality} \xB7 `, ` \xB7 ${quality} \xB7 `) : stream.title;
+  return Object.assign({}, stream, { url, quality, title });
+}
+function resolveUrl(base, uri) {
+  if (/^https?:\/\//i.test(uri)) return uri;
+  if (uri.startsWith("//")) return base.split(":")[0] + ":" + uri;
+  const origin2 = (base.match(/^https?:\/\/[^/]+/i) || [""])[0];
+  if (uri.startsWith("/")) return origin2 + uri;
+  const dir = base.split("?")[0].replace(/[^/]*$/, "");
+  const parts = (dir.slice(origin2.length) + uri).split("/");
+  const out = [];
+  for (const p of parts) {
+    if (p === "..") out.pop();
+    else if (p !== ".") out.push(p);
+  }
+  return origin2 + out.join("/").replace(/^\/?/, "/");
+}
 
 // src/core/provider.js
 function defineProvider({ id, run, timeout = 25e3, titles = true }) {
@@ -415,7 +462,12 @@ function defineProvider({ id, run, timeout = 25e3, titles = true }) {
       }
       log(`mapeo ${ctx.anilistId}/${ctx.malId} ep ${ctx.episode} ${ctx.romaji || ""} (${tMap} ms)`);
       const streams = await withTimeout(Promise.resolve(run(ctx)), timeout, "scraper");
-      const out = dedupe((streams || []).filter(Boolean));
+      const best = await Promise.all(
+        (streams || []).filter(Boolean).map(
+          (st) => pickBestVariant(st, (u, h) => getText(u, { headers: h, timeout: 4e3 })).catch(() => st)
+        )
+      );
+      const out = dedupe(best);
       log(`fuentes ${out.length} en ${Date.now() - t0} ms (scraper ${Date.now() - t0 - tMap} ms)`);
       return out;
     } catch (e) {

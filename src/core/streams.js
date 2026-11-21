@@ -66,3 +66,60 @@ export function dedupe(list) {
     return true;
   });
 }
+
+// Si el enlace es una lista HLS "maestra" con varias calidades, la cambia por
+// la de mayor resolución (1080p cuando existe), para que el reproductor no
+// empiece en una calidad baja. Si el audio va en pistas aparte
+// (EXT-X-MEDIA TYPE=AUDIO con URI) se deja la maestra: la variante sola no
+// tendría sonido.
+export async function pickBestVariant(stream, fetchText) {
+  if (!stream || stream.type !== "m3u8") return stream;
+  let text;
+  try {
+    text = await fetchText(stream.url, stream.headers);
+  } catch (_) {
+    return stream;
+  }
+  if (!text || !/#EXT-X-STREAM-INF/i.test(text)) return stream;
+  // Pistas de audio o subtítulos aparte: se perderían al elegir una variante.
+  if (/#EXT-X-MEDIA:[^\n]*TYPE=(AUDIO|SUBTITLES)[^\n]*URI=/i.test(text)) return stream;
+  const lines = text.split(/\r?\n/);
+  let best = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^#EXT-X-STREAM-INF/i.test(lines[i])) continue;
+    let uri = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const l = lines[j].trim();
+      if (l && !l.startsWith("#")) {
+        uri = l;
+        break;
+      }
+    }
+    if (!uri) continue;
+    const h = Number((lines[i].match(/RESOLUTION=\d+x(\d+)/i) || [])[1] || 0);
+    const bw = Number((lines[i].match(/[^-]BANDWIDTH=(\d+)/i) || [])[1] || 0);
+    if (!best || h > best.h || (h === best.h && bw > best.bw)) best = { h, bw, uri };
+  }
+  if (!best) return stream;
+  const url = resolveUrl(stream.url, best.uri);
+  const quality = best.h ? normalizeQuality(`${best.h}p`) : stream.quality;
+  const title = stream.title && stream.quality ? stream.title.replace(` · ${stream.quality} · `, ` · ${quality} · `) : stream.title;
+  return Object.assign({}, stream, { url, quality, title });
+}
+
+// Resuelve una ruta relativa de una lista HLS (sin depender de URL, que el
+// motor de Nuvio TV puede no tener).
+function resolveUrl(base, uri) {
+  if (/^https?:\/\//i.test(uri)) return uri;
+  if (uri.startsWith("//")) return base.split(":")[0] + ":" + uri;
+  const origin = (base.match(/^https?:\/\/[^/]+/i) || [""])[0];
+  if (uri.startsWith("/")) return origin + uri;
+  const dir = base.split("?")[0].replace(/[^/]*$/, "");
+  const parts = (dir.slice(origin.length) + uri).split("/");
+  const out = [];
+  for (const p of parts) {
+    if (p === "..") out.pop();
+    else if (p !== ".") out.push(p);
+  }
+  return origin + out.join("/").replace(/^\/?/, "/");
+}
