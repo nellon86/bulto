@@ -643,7 +643,7 @@ async function run(ctx) {
     ...external.map((s) => extract(s.url, page))
   ]);
   const seen = /* @__PURE__ */ new Set();
-  return results.filter((r) => r && r.url && !seen.has(r.url) && seen.add(r.url)).map(
+  return results.filter((r) => r && r.url && !seen.has(r.url.split("?")[0]) && seen.add(r.url.split("?")[0])).map(
     (r) => makeStream(ctx, {
       lang: "es",
       source: "JKAnime",

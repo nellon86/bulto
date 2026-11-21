@@ -81,7 +81,7 @@ async function run(ctx) {
   ]);
   const seen = new Set();
   return results
-    .filter((r) => r && r.url && !seen.has(r.url) && seen.add(r.url))
+    .filter((r) => r && r.url && !seen.has(r.url.split("?")[0]) && seen.add(r.url.split("?")[0]))
     .map((r) =>
       makeStream(ctx, {
         lang: "es",
