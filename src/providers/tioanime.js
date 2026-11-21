@@ -3,7 +3,7 @@
 import { getText, log, settle, decodeHtml } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
-import { titleScore, searchQueries } from "../core/mapping.js";
+import { pickByTitle, searchQueries } from "../core/mapping.js";
 import { extract, isSupported, hostRank } from "../core/extractors.js";
 
 const BASE = "https://tioanime.com";
@@ -18,14 +18,10 @@ async function search(q) {
 }
 
 async function findSlug(ctx) {
-  const queries = searchQueries(ctx);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
-  for (const results of lists) {
-    const ranked = results.map((r) => ({ ...r, score: titleScore(r.title, ctx) })).sort((a, b) => b.score - a.score);
-    if (ranked[0] && ranked[0].score === 2) return ranked[0].slug;
-    if (ranked.length === 1 && ranked[0].score === 1) return ranked[0].slug;
-  }
-  return null;
+  const lists = await Promise.all(searchQueries(ctx).map((q) => search(q).catch(() => [])));
+  const { slug, ranked } = pickByTitle(lists, ctx);
+  log("candidatos", ranked.map((r) => `${r.slug}(${r.score})`).join(" ") || "ninguno", "→", slug || "-");
+  return slug;
 }
 
 export async function runFor(ctx, providerId) {

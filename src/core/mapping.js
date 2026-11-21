@@ -332,3 +332,33 @@ export function searchQueries(ctx, max = 3) {
   if (base.length >= 3) add(base);
   return out.slice(0, max);
 }
+
+// Como titleScore, pero da 3 cuando el título coincide con el de la entrada
+// concreta de AniList (romaji, inglés o sinónimos) y no solo con el nombre
+// general de la serie en TMDB: así "Spy x Family" no gana a "Spy x Family
+// Season 2" cuando se busca la segunda temporada.
+export function entryScore(siteTitle, ctx) {
+  const t = norm(siteTitle);
+  if (!t) return 0;
+  for (const c of [ctx.romaji, ctx.english, ...(ctx.synonyms || [])]) if (norm(c) === t) return 3;
+  return titleScore(siteTitle, ctx);
+}
+
+// Elige una ficha entre resultados {slug, title} de varias búsquedas.
+// Gana el título de la entrada concreta; si no, un título exacto único;
+// si no, un único parecido. En caso de duda, ninguna.
+export function pickByTitle(lists, ctx) {
+  const seen = new Set();
+  const ranked = lists
+    .flat()
+    .filter((r) => (seen.has(r.slug) ? false : seen.add(r.slug)))
+    .map((r) => ({ ...r, score: entryScore(r.title, ctx) }))
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const top = ranked[0];
+  let slug = null;
+  if (top && top.score === 3) slug = top.slug;
+  else if (top && top.score === 2 && ranked.filter((r) => r.score === 2).length === 1) slug = top.slug;
+  else if (ranked.length === 1) slug = top.slug;
+  return { slug, ranked };
+}

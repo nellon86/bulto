@@ -350,6 +350,22 @@ function searchQueries(ctx, max = 3) {
   if (base.length >= 3) add(base);
   return out.slice(0, max);
 }
+function entryScore(siteTitle, ctx) {
+  const t = norm(siteTitle);
+  if (!t) return 0;
+  for (const c of [ctx.romaji, ctx.english, ...ctx.synonyms || []]) if (norm(c) === t) return 3;
+  return titleScore(siteTitle, ctx);
+}
+function pickByTitle(lists, ctx) {
+  const seen = /* @__PURE__ */ new Set();
+  const ranked = lists.flat().filter((r) => seen.has(r.slug) ? false : seen.add(r.slug)).map((r) => ({ ...r, score: entryScore(r.title, ctx) })).filter((r) => r.score > 0).sort((a, b) => b.score - a.score);
+  const top = ranked[0];
+  let slug = null;
+  if (top && top.score === 3) slug = top.slug;
+  else if (top && top.score === 2 && ranked.filter((r) => r.score === 2).length === 1) slug = top.slug;
+  else if (ranked.length === 1) slug = top.slug;
+  return { slug, ranked };
+}
 
 // src/core/streams.js
 var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}", "es-cast": "\u{1F1EA}\u{1F1F8}", "es-lat": "\u{1F1F2}\u{1F1FD}", "it-dub": "\u{1F1EE}\u{1F1F9}" };
@@ -605,14 +621,10 @@ async function search(q) {
   return out;
 }
 async function findSlug(ctx) {
-  const queries = searchQueries(ctx);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
-  for (const results of lists) {
-    const ranked = results.map((r) => ({ ...r, score: titleScore(r.title, ctx) })).sort((a, b) => b.score - a.score);
-    if (ranked[0] && ranked[0].score === 2) return ranked[0].slug;
-    if (ranked.length === 1 && ranked[0].score === 1) return ranked[0].slug;
-  }
-  return null;
+  const lists = await Promise.all(searchQueries(ctx).map((q) => search(q).catch(() => [])));
+  const { slug, ranked } = pickByTitle(lists, ctx);
+  log("candidatos", ranked.map((r) => `${r.slug}(${r.score})`).join(" ") || "ninguno", "\u2192", slug || "-");
+  return slug;
 }
 async function runFor(ctx, providerId) {
   const slug = await findSlug(ctx);
