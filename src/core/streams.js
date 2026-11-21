@@ -17,7 +17,9 @@ export function makeStream(ctx, opts) {
   ];
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const out = {
-    name: `${FLAGS[lang]} ${opts.source}`,
+    // Nuvio ordena las fuentes de un scraper por nombre: el servidor va en el
+    // nombre para que el orden sea alfabético por servidor (Zilla queda al final).
+    name: `${FLAGS[lang]} ${opts.source}${opts.server ? " · " + opts.server : ""}`,
     title: lines.join("\n"),
     url: opts.url,
     quality,

@@ -73,7 +73,7 @@ async function packedPlayer(url, referer) {
 const HOSTS = [
   { re: /yourupload\.com/i, name: "YourUpload", fn: yourUpload },
   { re: /mp4upload\.com/i, name: "MP4Upload", fn: mp4Upload },
-  { re: /zilla-networks\.com/i, name: "HLS", fn: zilla },
+  { re: /zilla-networks\.com/i, name: "Zilla", fn: zilla },
   {
     re: /(vidhide|ryderjet|callistanise|filelions|streamwish|swdyu|wishembed|strwish|playerwish|dhcplay|hlswish|mivalyo|dinisglows|vidhidepro|vidhidevip|cdnwish)/i,
     name: "VidHide",
@@ -83,7 +83,7 @@ const HOSTS = [
 
 // Orden de preferencia: primero los más fiables.
 export function hostRank(url) {
-  const order = ["HLS", "YourUpload", "MP4Upload", "VidHide"];
+  const order = ["YourUpload", "MP4Upload", "VidHide", "Zilla"];
   const name = hostName(url);
   const i = order.indexOf(name);
   return i < 0 ? 99 : i;

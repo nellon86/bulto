@@ -337,7 +337,9 @@ function makeStream(ctx, opts) {
   ];
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const out = {
-    name: `${FLAGS[lang]} ${opts.source}`,
+    // Nuvio ordena las fuentes de un scraper por nombre: el servidor va en el
+    // nombre para que el orden sea alfabético por servidor (Zilla queda al final).
+    name: `${FLAGS[lang]} ${opts.source}${opts.server ? " \xB7 " + opts.server : ""}`,
     title: lines.join("\n"),
     url: opts.url,
     quality,
@@ -460,7 +462,7 @@ async function packedPlayer(url, referer) {
 var HOSTS = [
   { re: /yourupload\.com/i, name: "YourUpload", fn: yourUpload },
   { re: /mp4upload\.com/i, name: "MP4Upload", fn: mp4Upload },
-  { re: /zilla-networks\.com/i, name: "HLS", fn: zilla },
+  { re: /zilla-networks\.com/i, name: "Zilla", fn: zilla },
   {
     re: /(vidhide|ryderjet|callistanise|filelions|streamwish|swdyu|wishembed|strwish|playerwish|dhcplay|hlswish|mivalyo|dinisglows|vidhidepro|vidhidevip|cdnwish)/i,
     name: "VidHide",
@@ -468,7 +470,7 @@ var HOSTS = [
   }
 ];
 function hostRank(url) {
-  const order = ["HLS", "YourUpload", "MP4Upload", "VidHide"];
+  const order = ["YourUpload", "MP4Upload", "VidHide", "Zilla"];
   const name = hostName(url);
   const i = order.indexOf(name);
   return i < 0 ? 99 : i;
