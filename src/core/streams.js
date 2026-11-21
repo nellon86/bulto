@@ -74,6 +74,9 @@ export function dedupe(list) {
 // tendría sonido.
 export async function pickBestVariant(stream, fetchText) {
   if (!stream || stream.type !== "m3u8") return stream;
+  // VidHide/Voe marcan las calidades en la ruta ("_n", ",n,"): una sola letra
+  // = una sola calidad, no hay nada que elegir (y su CDN a veces tarda).
+  if (/_n\/master\.m3u8|_,n,\.urlset/.test(stream.url)) return stream;
   let text;
   try {
     text = await fetchText(stream.url, stream.headers);

@@ -436,6 +436,7 @@ function dedupe(list) {
 }
 async function pickBestVariant(stream, fetchText) {
   if (!stream || stream.type !== "m3u8") return stream;
+  if (/_n\/master\.m3u8|_,n,\.urlset/.test(stream.url)) return stream;
   let text;
   try {
     text = await fetchText(stream.url, stream.headers);
