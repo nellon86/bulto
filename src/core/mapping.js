@@ -313,12 +313,22 @@ export function cleanQuery(q) {
     .trim();
 }
 
-// Consultas para buscar por título (romaji e inglés, limpias y sin repetir).
-export function searchQueries(ctx, max = 2) {
+// Consultas para buscar por título (romaji e inglés, limpias y sin repetir),
+// más el título sin "Season 2" / "2nd Season" / "Part 2": varios buscadores no
+// encuentran nada con el sufijo y sí con el nombre base (el ID o el título
+// exacto decide luego cuál es la ficha correcta).
+export function searchQueries(ctx, max = 3) {
   const out = [];
-  for (const t of [ctx.romaji, ctx.english]) {
+  const add = (t) => {
     const q = cleanQuery(t);
     if (q && !out.some((x) => x.toLowerCase() === q.toLowerCase())) out.push(q);
-  }
+  };
+  add(ctx.romaji);
+  add(ctx.english);
+  const base = cleanQuery(ctx.romaji || ctx.english)
+    .replace(/\b(season|part|cour)\s*\d+\b|\b\d+(st|nd|rd|th)\s+season\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (base.length >= 3) add(base);
   return out.slice(0, max);
 }

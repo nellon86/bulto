@@ -320,12 +320,16 @@ function titleScore(siteTitle, ctx) {
 function cleanQuery(q) {
   return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
 }
-function searchQueries(ctx, max = 2) {
+function searchQueries(ctx, max = 3) {
   const out = [];
-  for (const t of [ctx.romaji, ctx.english]) {
+  const add = (t) => {
     const q = cleanQuery(t);
     if (q && !out.some((x) => x.toLowerCase() === q.toLowerCase())) out.push(q);
-  }
+  };
+  add(ctx.romaji);
+  add(ctx.english);
+  const base = cleanQuery(ctx.romaji || ctx.english).replace(/\b(season|part|cour)\s*\d+\b|\b\d+(st|nd|rd|th)\s+season\b/gi, "").replace(/\s+/g, " ").trim();
+  if (base.length >= 3) add(base);
   return out.slice(0, max);
 }
 
