@@ -3,7 +3,7 @@ import { build } from "esbuild";
 import fs from "node:fs";
 
 const list = JSON.parse(fs.readFileSync("tools/providers.json", "utf8"));
-const pkgVersion = "1.1.0";
+const pkgVersion = "1.2.0";
 fs.mkdirSync("providers", { recursive: true });
 const banner = "// Generado desde src/ con tools/build.mjs. No editar a mano.\n";
 

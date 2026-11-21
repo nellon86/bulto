@@ -174,6 +174,8 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     episode: Number(episode) || 1,
     isMovie: !!extra.isMovie,
     format: media && media.format || null,
+    episodeCount: media && media.episodes || null,
+    synonyms: media && media.synonyms || [],
     year: media && media.seasonYear || extra.year || null,
     romaji,
     english,

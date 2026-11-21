@@ -171,6 +171,8 @@ function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
     episode: Number(episode) || 1,
     isMovie: !!extra.isMovie,
     format: media && media.format || null,
+    episodeCount: media && media.episodes || null,
+    synonyms: media && media.synonyms || [],
     year: media && media.seasonYear || extra.year || null,
     romaji,
     english,
@@ -287,24 +289,6 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
   const bySeason = candidates.find((c) => c["thetvdb-season"] === S) || candidates[0];
   return ctx(candidates.indexOf(bySeason), E);
 }
-function norm(s) {
-  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\b(the|tv|season|part|cour)\b/g, " ").replace(/\s+/g, " ").trim();
-}
-function titleScore(siteTitle, ctx) {
-  const t = norm(siteTitle);
-  if (!t) return 0;
-  let best = 0;
-  for (const c of ctx.titles) {
-    const n = norm(c);
-    if (!n) continue;
-    if (n === t) return 2;
-    if (t.length > 4 && n.length > 4 && (t.startsWith(n) || n.startsWith(t))) {
-      const diff = Math.abs(t.length - n.length);
-      if (diff <= 3) best = Math.max(best, 1);
-    }
-  }
-  return best;
-}
 
 // src/core/streams.js
 var FLAGS = { en: "\u{1F1EC}\u{1F1E7}", es: "\u{1F1EA}\u{1F1F8}", it: "\u{1F1EE}\u{1F1F9}" };
@@ -394,6 +378,10 @@ async function search(query) {
     const items = parseJsonParse(m[1]);
     return (Array.isArray(items) ? items : []).map((it) => ({
       slug: it.slug,
+      main: it.main_title,
+      year: Number(it.start_year) || null,
+      episodes: Number(it.episode_count) || null,
+      ongoing: !!it.is_ongoing,
       titles: [it.main_title, ...Object.values(it.title_list || {})].filter(Boolean)
     }));
   } catch (e) {
@@ -402,19 +390,60 @@ async function search(query) {
   }
 }
 var LANG = { en: "en", english: "en", es: "es", spa: "es", spanish: "es", it: "it", ita: "it", italian: "it" };
-async function run(ctx) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
-  let pick = null;
-  let best = 0;
-  for (const c of lists.flat()) {
-    const score = Math.max(...c.titles.map((t) => titleScore(t, ctx)));
-    if (score > best) {
-      best = score;
-      pick = c;
+function n(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\(\d{4}\)/g, " ").replace(/[`’']/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\bwo\b/g, "o").replace(/ou/g, "o").replace(/uu/g, "u").replace(/\s+/g, " ").trim();
+}
+function base(s) {
+  return String(s || "").split(/\s*[:\-–]\s+/)[0].replace(/\b(\d+(st|nd|rd|th)\s+season|season\s*\d+|part\s*\d+|cour\s*\d+|II+|2|3|4)\b/gi, "").replace(/\s+/g, " ").trim();
+}
+function similarity(a, b) {
+  const A = new Set(n(a).split(" ").filter(Boolean));
+  const B = new Set(n(b).split(" ").filter(Boolean));
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const x of A) if (B.has(x)) inter++;
+  return 2 * inter / (A.size + B.size);
+}
+function pickCard(cards, ctx) {
+  const full = [ctx.romaji, ctx.english, ...ctx.synonyms || []].filter(Boolean);
+  const bases = [...new Set(full.slice(0, 2).map(base).filter((b) => b && n(b)))];
+  let best = null;
+  let bestScore = 0;
+  for (const c of cards) {
+    let score = 0;
+    for (const t of c.titles) {
+      if (ctx.native && String(t).replace(/\s*\(\d{4}\)/, "") === ctx.native) score = Math.max(score, 3);
+      for (const o of full) {
+        if (n(o) && n(o) === n(t)) score = Math.max(score, 3);
+        else if (similarity(o, t) >= 0.85) score = Math.max(score, 2);
+      }
+      for (const b of bases) if (n(b) === n(t)) score = Math.max(score, 1);
+    }
+    if (!score) continue;
+    const strictYear = /\(\d{4}\)/.test(c.main || "") || score < 3;
+    const yearOk = !ctx.year || !c.year || (strictYear ? c.year === ctx.year : Math.abs(c.year - ctx.year) <= 1);
+    const epsOk = !ctx.episodeCount || !c.episodes || c.ongoing || Math.abs(c.episodes - ctx.episodeCount) <= 1;
+    if (!yearOk || !epsOk) continue;
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
     }
   }
-  if (!pick) return [];
+  return best;
+}
+async function run(ctx) {
+  const full = [ctx.romaji, ctx.english].filter(Boolean);
+  const variant = ctx.romaji ? ctx.romaji.replace(/\bwo\b/gi, "o") : null;
+  const queries = [...new Set([...full, variant, ...full.map(base)].filter((q) => q && n(q)))].slice(0, 5);
+  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const seen = /* @__PURE__ */ new Set();
+  const cards = lists.flat().filter((c) => seen.has(c.slug) ? false : seen.add(c.slug));
+  const pick = pickCard(cards, ctx);
+  if (!pick) {
+    log("sin coincidencia entre", cards.length, "fichas");
+    return [];
+  }
+  log("ficha", pick.main, pick.year, pick.episodes);
   const url = `${BASE}/anime/${pick.slug}/${ctx.episode}`;
   const html = await getText(url, { headers: HEADERS });
   const m = html.match(/vidstackPlayer\(JSON\.parse\('((?:[^'\\]|\\.)*)'\)\)/);
