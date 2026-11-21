@@ -66,7 +66,18 @@ let logPrefix = "[anime]";
 export function setLogPrefix(p) {
   logPrefix = p;
 }
+// Registro en memoria para el modo diagnóstico (botón "Probar" de Nuvio).
+let captureBuf = null;
+export function startCapture() {
+  captureBuf = [];
+}
+export function stopCapture() {
+  const b = captureBuf || [];
+  captureBuf = null;
+  return b;
+}
 export function log(...args) {
+  if (captureBuf) captureBuf.push(args.map((a) => String(a)).join(" "));
   try {
     console.log(logPrefix, ...args);
   } catch (_) {}

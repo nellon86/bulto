@@ -64,7 +64,17 @@ var logPrefix = "[anime]";
 function setLogPrefix(p) {
   logPrefix = p;
 }
+var captureBuf = null;
+function startCapture() {
+  captureBuf = [];
+}
+function stopCapture() {
+  const b = captureBuf || [];
+  captureBuf = null;
+  return b;
+}
 function log(...args) {
+  if (captureBuf) captureBuf.push(args.map((a) => String(a)).join(" "));
   try {
     console.log(logPrefix, ...args);
   } catch (_) {
@@ -445,7 +455,35 @@ function resolveUrl(base, uri) {
 
 // src/core/provider.js
 function defineProvider({ id, run, timeout = 25e3, titles = true }) {
+  async function diagnose() {
+    startCapture();
+    const t0 = Date.now();
+    let out = [];
+    try {
+      out = await getStreamsReal("303272", "tv", 1, 7);
+    } catch (e) {
+      log("excepci\xF3n", e && e.message);
+    }
+    const lines = stopCapture().map((l) => l.replace(`[${id}] `, ""));
+    const pick = (re) => lines.filter((l) => re.test(l));
+    const rows = [
+      `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin l\xEDnea de mapeo"}`,
+      `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin b\xFAsqueda"}`,
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|tryText|tryJson|extractor|excepción|HTTP/).slice(0, 4).join(" | ") || "sin errores"}`
+    ];
+    return rows.map((t, i) => ({
+      name: `Diagn\xF3stico ${i + 1}`,
+      title: t.slice(0, 400),
+      url: `https://example.com/diagnostico/${id}/${i + 1}`,
+      quality: i === 2 ? `${out.length} fuentes` : "diag",
+      type: "mp4"
+    }));
+  }
   async function getStreams3(tmdbId, mediaType, season, episode) {
+    if (String(tmdbId) === "603" && mediaType === "movie") return diagnose();
+    return getStreamsReal(tmdbId, mediaType, season, episode);
+  }
+  async function getStreamsReal(tmdbId, mediaType, season, episode) {
     setLogPrefix(`[${id}]`);
     const t0 = Date.now();
     try {
