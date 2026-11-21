@@ -10,8 +10,10 @@ https://raw.githubusercontent.com/nellon86/bulto/nuvio-anime/manifest.json
 
 | Scraper | Idioma | Notas |
 |---|---|---|
-| 🇪🇸 AnimeAV1 | Español (VOSE) | Identifica la serie por ID de MAL. Servidores: HLS, YourUpload, MP4Upload, VidHide. |
-| 🇪🇸 TioAnime | Español (VOSE) | Por título. Servidor: YourUpload. |
+| 🇪🇸 AnimeAV1 | Español (VOSE) | Identifica la serie por ID de MAL. Servidores: HLS, YourUpload, MP4Upload, VidHide, Voe. |
+| 🇪🇸 TioAnime | Español (VOSE) | Por título. Servidores: YourUpload, Voe. |
+| 🇪🇸 JKAnime | Español (VOSE) | Por título. Servidor HLS propio (Desu/Magi), MP4Upload, VidHide, Voe. Cloudflare bloquea las pruebas automáticas. |
+| 🇪🇸 MonosChinos | Español (VOSE) | Por título. Servidores: MP4Upload, Uqload, Voe, VidHide. |
 | 🇮🇹 AnimeWorld | Italiano (SUB ITA) | Por ID de AniList. MP4 directo. Descarta las fichas "(ITA)". |
 | 🇮🇹 AnimeSaturn | Italiano (SUB ITA) | Por ID de AniList. Descarta las fichas dobladas. |
 | 🇬🇧 MegaPlay | Inglés | Por ID de AniList/MAL. Solo la pista `sub`. |
