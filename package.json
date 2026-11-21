@@ -1,0 +1,13 @@
+{
+  "name": "nuvio-anime-sub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node tools/test.mjs"
+  },
+  "devDependencies": {
+    "crypto-js": "^4.2.0",
+    "esbuild": "^0.24.0"
+  }
+}

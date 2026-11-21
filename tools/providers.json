@@ -1,0 +1,9 @@
+[
+  {"id":"animeav1","name":"🇪🇸 AnimeAV1","lang":["es"],"description":"Anime en VOSE (subtitulado en español) desde AnimeAV1.","logo":"https://animeav1.com/favicon.ico"},
+  {"id":"tioanime","name":"🇪🇸 TioAnime","lang":["es"],"description":"Anime en VOSE (subtitulado en español) desde TioAnime.","logo":"https://tioanime.com/favicon.ico"},
+  {"id":"animeworld","name":"🇮🇹 AnimeWorld","lang":["it"],"description":"Anime SUB ITA desde AnimeWorld (MP4 directo).","logo":"https://www.animeworld.ac/favicon.ico"},
+  {"id":"animesaturn","name":"🇮🇹 AnimeSaturn","lang":["it"],"description":"Anime SUB ITA desde AnimeSaturn.","logo":"https://www.animesaturn.net/favicon.ico"},
+  {"id":"megaplay","name":"🇬🇧 MegaPlay","lang":["en"],"description":"Anime subtitulado en inglés desde MegaPlay (por ID de AniList/MAL).","logo":"https://megaplay.buzz/favicon.ico"},
+  {"id":"reanime","name":"🇬🇧 Reanime","lang":["en"],"description":"Anime subtitulado en inglés desde Reanime (FlixCloud).","logo":"https://reanime.cz/favicon.ico"},
+  {"id":"anizone","name":"🌐 AniZone","lang":["en","es","it"],"description":"Anime con subtítulos en varios idiomas desde AniZone.","logo":"https://anizone.to/favicon.ico"}
+]

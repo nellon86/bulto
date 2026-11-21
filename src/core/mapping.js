@@ -1,0 +1,282 @@
+// Convierte lo que envía Nuvio (TMDB + temporada + episodio) en la entrada
+// concreta de AniList/MAL y el número de episodio dentro de esa entrada.
+//
+// Fuentes: TMDB (fechas de emisión), ARM (TMDB -> AniList/MAL) y ani.zip
+// (episodios de cada entrada de AniList con su fecha y numeración TVDB).
+// No usa Jikan: desde algunas redes no conecta y retrasa todo.
+
+import { getJson, tryJson, log } from "./http.js";
+
+const TMDB = "https://api.themoviedb.org/3";
+const FALLBACK_TMDB_KEY = "439c478a771f35c05022f9feabcca01c";
+
+function tmdbKey() {
+  try {
+    if (typeof globalThis !== "undefined" && globalThis.TMDB_API_KEY) return globalThis.TMDB_API_KEY;
+  } catch (_) {}
+  return FALLBACK_TMDB_KEY;
+}
+
+function tmdb(path) {
+  const sep = path.includes("?") ? "&" : "?";
+  return tryJson(`${TMDB}${path}${sep}api_key=${tmdbKey()}`, { timeout: 8000 });
+}
+
+function dayDiff(a, b) {
+  if (!a || !b) return 99;
+  const da = Date.parse(String(a).slice(0, 10) + "T00:00:00Z");
+  const db = Date.parse(String(b).slice(0, 10) + "T00:00:00Z");
+  if (isNaN(da) || isNaN(db)) return 99;
+  return Math.abs(da - db) / 86400000;
+}
+
+async function aniZip(param, value) {
+  return tryJson(`https://api.ani.zip/mappings?${param}=${encodeURIComponent(value)}`, { timeout: 8000 });
+}
+
+async function anilistMedia(id) {
+  const query =
+    "query($id:Int){Media(id:$id,type:ANIME){id idMal format episodes seasonYear title{romaji english native} synonyms}}";
+  try {
+    const res = await getJson("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ query, variables: { id: Number(id) } }),
+      timeout: 8000,
+    });
+    return (res && res.data && res.data.Media) || null;
+  } catch (e) {
+    log("anilist", e && e.message);
+    return null;
+  }
+}
+
+async function anilistSearch(search, format) {
+  const query =
+    "query($s:String){Page(perPage:8){media(search:$s,type:ANIME){id idMal format episodes seasonYear title{romaji english native} synonyms}}}";
+  try {
+    const res = await getJson("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ query, variables: { s: search } }),
+      timeout: 8000,
+    });
+    const list = (res && res.data && res.data.Page && res.data.Page.media) || [];
+    if (format === "movie") {
+      const movies = list.filter((m) => m.format === "MOVIE");
+      if (movies.length) return movies;
+    }
+    return list;
+  } catch (e) {
+    log("anilist search", e && e.message);
+    return [];
+  }
+}
+
+function numericEpisodes(zip) {
+  if (!zip || !zip.episodes) return [];
+  return Object.keys(zip.episodes)
+    .filter((k) => /^\d+$/.test(k))
+    .map((k) => Object.assign({ key: Number(k) }, zip.episodes[k]))
+    .sort((a, b) => a.key - b.key);
+}
+
+function uniq(list) {
+  const seen = new Set();
+  const out = [];
+  for (const v of list) {
+    const s = v && String(v).trim();
+    if (s && !seen.has(s.toLowerCase())) {
+      seen.add(s.toLowerCase());
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+// Contexto final que reciben los scrapers.
+async function buildContext(anilistId, malId, episode, zip, extra) {
+  const media = await anilistMedia(anilistId);
+  const z = (zip && zip.titles) || {};
+  const romaji = (media && media.title && media.title.romaji) || z["x-jat"] || "";
+  const english = (media && media.title && media.title.english) || z.en || "";
+  const titles = uniq([
+    romaji,
+    english,
+    ...(media && media.synonyms ? media.synonyms : []),
+    z["x-jat"],
+    z.en,
+    z.es,
+    z["es-419"],
+    z.it,
+    extra.tmdbTitle,
+    extra.tmdbOriginal,
+  ]).filter((t) => !/[぀-ヿ一-鿿가-힯]/.test(t));
+  return {
+    anilistId: Number(anilistId),
+    malId: malId ? Number(malId) : (media && media.idMal) || null,
+    episode: Number(episode) || 1,
+    isMovie: !!extra.isMovie,
+    format: (media && media.format) || null,
+    year: (media && media.seasonYear) || extra.year || null,
+    romaji,
+    english,
+    native: (media && media.title && media.title.native) || z.ja || "",
+    titles,
+    titleEs: z.es || z["es-419"] || "",
+    titleIt: z.it || "",
+    display: extra.tmdbTitle || english || romaji,
+    season: extra.season,
+    tmdbEpisode: extra.tmdbEpisode,
+  };
+}
+
+function parseSpecialId(raw) {
+  const s = String(raw || "").trim();
+  let m = s.match(/^(kitsu|mal|anilist):(\d+)(?::(\d+))?(?::(\d+))?$/i);
+  if (m) {
+    const ep = m[4] ? Number(m[4]) : m[3] ? Number(m[3]) : null;
+    return { kind: m[1].toLowerCase(), id: m[2], episode: ep };
+  }
+  return null;
+}
+
+export async function resolveAnime(rawId, mediaType, season, episode) {
+  const isMovie = mediaType === "movie";
+  const special = parseSpecialId(rawId);
+  if (special) {
+    const param = { kitsu: "kitsu_id", mal: "mal_id", anilist: "anilist_id" }[special.kind];
+    const zip = await aniZip(param, special.id);
+    const al = zip && zip.mappings && zip.mappings.anilist_id;
+    if (!al) return null;
+    return buildContext(al, zip.mappings.mal_id, isMovie ? 1 : special.episode || episode || 1, zip, {
+      isMovie,
+      season,
+    });
+  }
+
+  let tmdbId = String(rawId || "").trim();
+  if (/^tt\d+$/i.test(tmdbId)) {
+    const found = await tmdb(`/find/${tmdbId}?external_source=imdb_id`);
+    const hit = found && ((isMovie ? found.movie_results : found.tv_results) || [])[0];
+    if (!hit) return null;
+    tmdbId = String(hit.id);
+  }
+  tmdbId = tmdbId.replace(/^tmdb:/, "");
+  if (!/^\d+$/.test(tmdbId)) return null;
+
+  const details = await tmdb(`/${isMovie ? "movie" : "tv"}/${tmdbId}`);
+  if (!details) return null;
+  const tmdbTitle = details.name || details.title || "";
+  const tmdbOriginal = details.original_name || details.original_title || "";
+  const year = Number(String(details.first_air_date || details.release_date || "").slice(0, 4)) || null;
+  const isAnimation = (details.genres || []).some((g) => g.id === 16);
+  const isAsian = ["ja", "zh", "ko"].includes(details.original_language);
+  if (!isAnimation || !isAsian) {
+    log("no parece anime:", tmdbTitle);
+    return null;
+  }
+
+  const arm = (await tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 8000 })) || [];
+  let candidates = arm.filter((e) => e && e.anilist);
+
+  if (isMovie) {
+    let pick = candidates[0];
+    if (!pick) {
+      const found = await anilistSearch(tmdbOriginal || tmdbTitle, "movie");
+      const byYear = found.find((m) => !year || !m.seasonYear || Math.abs(m.seasonYear - year) <= 1) || found[0];
+      if (!byYear) return null;
+      pick = { anilist: byYear.id, myanimelist: byYear.idMal };
+    }
+    const zip = await aniZip("anilist_id", pick.anilist);
+    return buildContext(pick.anilist, pick.myanimelist, 1, zip, { isMovie, tmdbTitle, tmdbOriginal, year });
+  }
+
+  const S = Number(season) || 1;
+  const E = Number(episode) || 1;
+
+  // Fecha de emisión del episodio en TMDB y su posición entre los del mismo día.
+  let airDate = null;
+  let dayIndex = 0;
+  const seasonData = await tmdb(`/tv/${tmdbId}/season/${S}`);
+  if (seasonData && Array.isArray(seasonData.episodes)) {
+    const target = seasonData.episodes.find((e) => e.episode_number === E);
+    if (target && target.air_date) {
+      airDate = target.air_date;
+      dayIndex = seasonData.episodes.filter((e) => e.air_date === airDate && e.episode_number < E).length;
+    }
+  }
+
+  if (!candidates.length) {
+    const found = await anilistSearch(tmdbOriginal || tmdbTitle, "tv");
+    candidates = found.slice(0, 4).map((m) => ({ anilist: m.id, myanimelist: m.idMal }));
+  }
+  if (!candidates.length) return null;
+
+  // Primero las entradas cuya temporada TVDB coincide con la pedida.
+  candidates.sort((a, b) => {
+    const as = a["thetvdb-season"] === S ? 0 : 1;
+    const bs = b["thetvdb-season"] === S ? 0 : 1;
+    return as - bs;
+  });
+  candidates = candidates.slice(0, 6);
+  const zips = await Promise.all(candidates.map((c) => aniZip("anilist_id", c.anilist)));
+
+  const extra = { isMovie, tmdbTitle, tmdbOriginal, year, season: S, tmdbEpisode: E };
+
+  // 1) Coincidencia por fecha de emisión.
+  if (airDate) {
+    for (let i = 0; i < candidates.length; i++) {
+      const eps = numericEpisodes(zips[i]);
+      const sameDay = eps.filter((e) => dayDiff(e.airDate || e.airdate, airDate) <= 1);
+      if (sameDay.length) {
+        const hit = sameDay[Math.min(dayIndex, sameDay.length - 1)];
+        return buildContext(candidates[i].anilist, candidates[i].myanimelist, hit.key, zips[i], extra);
+      }
+    }
+  }
+  // 2) Coincidencia por temporada y episodio TVDB.
+  for (let i = 0; i < candidates.length; i++) {
+    const hit = numericEpisodes(zips[i]).find((e) => e.seasonNumber === S && e.episodeNumber === E);
+    if (hit) return buildContext(candidates[i].anilist, candidates[i].myanimelist, hit.key, zips[i], extra);
+  }
+  // 3) Numeración absoluta (series largas con una sola entrada).
+  for (let i = 0; i < candidates.length; i++) {
+    const hit = numericEpisodes(zips[i]).find((e) => e.absoluteEpisodeNumber === E);
+    if (hit && S === 1) return buildContext(candidates[i].anilist, candidates[i].myanimelist, hit.key, zips[i], extra);
+  }
+  // 4) Último recurso: la entrada de esa temporada con el mismo número.
+  const bySeason = candidates.find((c) => c["thetvdb-season"] === S) || candidates[0];
+  const idx = candidates.indexOf(bySeason);
+  return buildContext(bySeason.anilist, bySeason.myanimelist, E, zips[idx], extra);
+}
+
+// Normaliza un título para comparar.
+export function norm(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(the|tv|season|part|cour)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ¿El título del sitio corresponde a alguno de los nuestros? 2 = exacto, 1 = parecido.
+export function titleScore(siteTitle, ctx) {
+  const t = norm(siteTitle);
+  if (!t) return 0;
+  let best = 0;
+  for (const c of ctx.titles) {
+    const n = norm(c);
+    if (!n) continue;
+    if (n === t) return 2;
+    if (t.length > 4 && n.length > 4 && (t.startsWith(n) || n.startsWith(t))) {
+      const diff = Math.abs(t.length - n.length);
+      if (diff <= 3) best = Math.max(best, 1);
+    }
+  }
+  return best;
+}

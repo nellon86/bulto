@@ -1,0 +1,22 @@
+name: test-scrapers
+on:
+  push:
+    branches: [nuvio-anime]
+    paths: ["providers/**", "tests/**", "tools/test.mjs", ".github/workflows/test.yml"]
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Scrapers separados por comas (vacío = todos)"
+        required: false
+  schedule:
+    - cron: "17 6 * * 1"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+      - run: node tools/test.mjs "${{ github.event.inputs.only }}"

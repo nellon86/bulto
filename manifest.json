@@ -1,0 +1,164 @@
+{
+  "name": "Anime SUB (ES · IT · EN)",
+  "version": "1.0.0",
+  "description": "Anime subtitulado en español, italiano e inglés. Sin doblajes.",
+  "author": "nellon86",
+  "scrapers": [
+    {
+      "id": "animeav1",
+      "name": "🇪🇸 AnimeAV1",
+      "description": "Anime en VOSE (subtitulado en español) desde AnimeAV1.",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animeav1.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://animeav1.com/favicon.ico",
+      "contentLanguage": [
+        "es"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "tioanime",
+      "name": "🇪🇸 TioAnime",
+      "description": "Anime en VOSE (subtitulado en español) desde TioAnime.",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/tioanime.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://tioanime.com/favicon.ico",
+      "contentLanguage": [
+        "es"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "animeworld",
+      "name": "🇮🇹 AnimeWorld",
+      "description": "Anime SUB ITA desde AnimeWorld (MP4 directo).",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animeworld.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://www.animeworld.ac/favicon.ico",
+      "contentLanguage": [
+        "it"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "animesaturn",
+      "name": "🇮🇹 AnimeSaturn",
+      "description": "Anime SUB ITA desde AnimeSaturn.",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animesaturn.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://www.animesaturn.net/favicon.ico",
+      "contentLanguage": [
+        "it"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "megaplay",
+      "name": "🇬🇧 MegaPlay",
+      "description": "Anime subtitulado en inglés desde MegaPlay (por ID de AniList/MAL).",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/megaplay.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://megaplay.buzz/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "reanime",
+      "name": "🇬🇧 Reanime",
+      "description": "Anime subtitulado en inglés desde Reanime (FlixCloud).",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/reanime.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://reanime.cz/favicon.ico",
+      "contentLanguage": [
+        "en"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    },
+    {
+      "id": "anizone",
+      "name": "🌐 AniZone",
+      "description": "Anime con subtítulos en varios idiomas desde AniZone.",
+      "version": "1.0.0",
+      "author": "nellon86",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/anizone.js",
+      "enabled": true,
+      "hasSettings": false,
+      "logo": "https://anizone.to/favicon.ico",
+      "contentLanguage": [
+        "en",
+        "es",
+        "it"
+      ],
+      "formats": [
+        "m3u8",
+        "mp4"
+      ]
+    }
+  ]
+}
