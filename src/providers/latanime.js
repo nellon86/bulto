@@ -107,7 +107,7 @@ export async function runDub(ctx, providerId) {
   const clean = (q) => String(q).replace(/×/g, " x ").replace(/[^0-9A-Za-z\u00C0-\u024F]+/g, " ").replace(/\s+/g, " ").trim();
   const queries = [ctx.titleEs, ctx.titleEsLat, ctx.english, ctx.romaji].filter(Boolean).map(clean).filter(Boolean);
   const unique = [...new Set(queries)].slice(0, 4);
-  const lists = await Promise.all(unique.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(unique.map((q) => search(q).catch((e) => { log("búsqueda falla", e && e.message); return []; })));
   const seen = new Set();
   const cards = lists.flat().filter((c) => (seen.has(c.slug) ? false : seen.add(c.slug)));
   // Una ficha vale si su título coincide o si es otra versión (castellano,

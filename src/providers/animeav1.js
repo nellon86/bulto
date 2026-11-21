@@ -35,7 +35,7 @@ async function malIdOf(slug) {
 
 export async function findSlug(ctx) {
   const queries = searchQueries(ctx);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q).catch((e) => { log("búsqueda falla", e && e.message); return []; })));
   const seen = new Set();
   const ranked = lists
     .flat()
@@ -45,7 +45,7 @@ export async function findSlug(ctx) {
     .slice(0, 4);
   if (!ctx.malId) return ranked[0] && ranked[0].score === 2 ? ranked[0].slug : null;
   // Comprueba el MAL de los candidatos en paralelo.
-  const mals = await Promise.all(ranked.map((r) => malIdOf(r.slug).catch(() => null)));
+  const mals = await Promise.all(ranked.map((r) => malIdOf(r.slug).catch((e) => { log("ficha falla", e && e.message); return null; })));
   const i = mals.findIndex((m) => Number(m) === Number(ctx.malId));
   return i >= 0 ? ranked[i].slug : null;
 }

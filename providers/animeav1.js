@@ -490,7 +490,7 @@ function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
     const rows = [
       `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin l\xEDnea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin b\xFAsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|tryText|tryJson|extractor|excepción|HTTP/).slice(0, 4).join(" | ") || "sin errores"}`
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`
     ];
     return rows.map((t, i) => ({
       name: `Diagn\xF3stico ${i + 1}`,
@@ -715,11 +715,17 @@ async function malIdOf(slug) {
 }
 async function findSlug(ctx) {
   const queries = searchQueries(ctx);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q).catch((e) => {
+    log("b\xFAsqueda falla", e && e.message);
+    return [];
+  })));
   const seen = /* @__PURE__ */ new Set();
   const ranked = lists.flat().filter((r) => seen.has(r.slug) ? false : seen.add(r.slug)).map((r) => ({ ...r, score: titleScore(r.title, ctx) })).sort((a, b) => b.score - a.score).slice(0, 4);
   if (!ctx.malId) return ranked[0] && ranked[0].score === 2 ? ranked[0].slug : null;
-  const mals = await Promise.all(ranked.map((r) => malIdOf(r.slug).catch(() => null)));
+  const mals = await Promise.all(ranked.map((r) => malIdOf(r.slug).catch((e) => {
+    log("ficha falla", e && e.message);
+    return null;
+  })));
   const i = mals.findIndex((m) => Number(m) === Number(ctx.malId));
   return i >= 0 ? ranked[i].slug : null;
 }

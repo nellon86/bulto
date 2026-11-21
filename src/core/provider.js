@@ -24,7 +24,7 @@ export function defineProvider({ id, run, timeout = 25000, titles = true }) {
     const rows = [
       `1 ${HAS_TIMERS ? "timers" : "sin timers"} · ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin línea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin búsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms · ${pick(/error|failed|tryText|tryJson|extractor|excepción|HTTP/).slice(0, 4).join(" | ") || "sin errores"}`,
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms · ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`,
     ];
     return rows.map((t, i) => ({
       name: `Diagnóstico ${i + 1}`,

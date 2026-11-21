@@ -21,7 +21,7 @@ async function search(q) {
 }
 
 async function findSlug(ctx) {
-  const lists = await Promise.all(searchQueries(ctx).map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(searchQueries(ctx).map((q) => search(q).catch((e) => { log("búsqueda falla", e && e.message); return []; })));
   const { slug, ranked } = pickByTitle(lists, ctx);
   log("candidatos", ranked.map((r) => `${r.slug}(${r.score})`).join(" ") || "ninguno", "→", slug || "-");
   return slug;

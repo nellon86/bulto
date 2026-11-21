@@ -470,7 +470,7 @@ function defineProvider({ id, run, timeout = 25e3, titles = true }) {
     const rows = [
       `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin l\xEDnea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin b\xFAsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|tryText|tryJson|extractor|excepción|HTTP/).slice(0, 4).join(" | ") || "sin errores"}`
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`
     ];
     return rows.map((t, i) => ({
       name: `Diagn\xF3stico ${i + 1}`,
@@ -528,7 +528,10 @@ async function search(q, dub) {
 }
 async function findAnime(ctx, dub) {
   const queries = searchQueries(ctx);
-  const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q, dub).catch((e) => {
+    log("b\xFAsqueda falla", e && e.message);
+    return [];
+  })));
   const seen = /* @__PURE__ */ new Set();
   const ranked = lists.flat().filter((r) => seen.has(r.href) ? false : seen.add(r.href)).map((r) => ({ ...r, score: titleScore(r.title.replace(/\s*\(ITA\)/i, ""), ctx) })).sort((a, b) => b.score - a.score).slice(0, 4);
   const pages = await Promise.all(ranked.map((r) => getText(BASE + r.href, { headers: HEADERS }).catch(() => null)));

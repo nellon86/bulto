@@ -113,7 +113,7 @@ async function run(ctx) {
   const full = [ctx.romaji, ctx.english].filter(Boolean);
   const variant = ctx.romaji ? ctx.romaji.replace(/\bwo\b/gi, "o") : null;
   const queries = [...new Set([...full, variant, ...full.map(base)].filter((q) => q && n(q)))].slice(0, 5);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q).catch((e) => { log("búsqueda falla", e && e.message); return []; })));
   const seen = new Set();
   const cards = lists.flat().filter((c) => (seen.has(c.slug) ? false : seen.add(c.slug)));
   const pick = pickCard(cards, ctx);

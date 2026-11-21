@@ -31,7 +31,7 @@ async function search(q, dub) {
 
 async function findPage(ctx, dub) {
   const queries = searchQueries(ctx);
-  const lists = await Promise.all(queries.map((q) => search(q, dub).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q, dub).catch((e) => { log("búsqueda falla", e && e.message); return []; })));
   const seen = new Set();
   const ranked = lists
     .flat()

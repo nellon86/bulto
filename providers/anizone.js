@@ -430,7 +430,7 @@ function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
     const rows = [
       `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin l\xEDnea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin b\xFAsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|tryText|tryJson|extractor|excepción|HTTP/).slice(0, 4).join(" | ") || "sin errores"}`
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`
     ];
     return rows.map((t, i) => ({
       name: `Diagn\xF3stico ${i + 1}`,
@@ -545,7 +545,10 @@ async function run(ctx) {
   const full = [ctx.romaji, ctx.english].filter(Boolean);
   const variant = ctx.romaji ? ctx.romaji.replace(/\bwo\b/gi, "o") : null;
   const queries = [...new Set([...full, variant, ...full.map(base)].filter((q) => q && n(q)))].slice(0, 5);
-  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(queries.map((q) => search(q).catch((e) => {
+    log("b\xFAsqueda falla", e && e.message);
+    return [];
+  })));
   const seen = /* @__PURE__ */ new Set();
   const cards = lists.flat().filter((c) => seen.has(c.slug) ? false : seen.add(c.slug));
   const pick = pickCard(cards, ctx);

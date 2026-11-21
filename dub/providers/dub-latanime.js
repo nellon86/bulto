@@ -474,7 +474,7 @@ function defineProvider({ id, run, timeout = 25e3, titles = true }) {
     const rows = [
       `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin l\xEDnea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin b\xFAsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|tryText|tryJson|extractor|excepción|HTTP/).slice(0, 4).join(" | ") || "sin errores"}`
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`
     ];
     return rows.map((t, i) => ({
       name: `Diagn\xF3stico ${i + 1}`,
@@ -765,7 +765,10 @@ async function runDub(ctx, providerId) {
   const clean = (q) => String(q).replace(/×/g, " x ").replace(/[^0-9A-Za-z\u00C0-\u024F]+/g, " ").replace(/\s+/g, " ").trim();
   const queries = [ctx.titleEs, ctx.titleEsLat, ctx.english, ctx.romaji].filter(Boolean).map(clean).filter(Boolean);
   const unique = [...new Set(queries)].slice(0, 4);
-  const lists = await Promise.all(unique.map((q) => search(q).catch(() => [])));
+  const lists = await Promise.all(unique.map((q) => search(q).catch((e) => {
+    log("b\xFAsqueda falla", e && e.message);
+    return [];
+  })));
   const seen = /* @__PURE__ */ new Set();
   const cards = lists.flat().filter((c) => seen.has(c.slug) ? false : seen.add(c.slug));
   const family = (slug) => slug.replace(/-(castellano|latino|catalan)$/, "");
