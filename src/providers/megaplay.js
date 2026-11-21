@@ -6,7 +6,7 @@ import { getText, getJson, log } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream } from "../core/streams.js";
 
-const BASES = ["https://megaplay.buzz", "https://vidwish.live"];
+const BASES = ["https://megaplay.buzz"];
 const KEY = "i?LMTAx0Q6,:}50U";
 const IV = "W0;27ToaUpl_P%'c";
 
@@ -51,7 +51,6 @@ async function run(ctx) {
       continue;
     }
     const dataId = (html.match(/id="megaplay-player"[\s\S]*?data-id="(\d+)"/) || [])[1];
-    const realId = (html.match(/data-realid="(\d+)"/) || [])[1];
     if (!dataId) continue;
     const out = [];
     const main = await sources(BASES[0], pageUrl, dataId).catch((e) => log("getSources", e.message));
@@ -69,36 +68,9 @@ async function run(ctx) {
         })
       );
     }
-    if (realId) {
-      const alt = `${BASES[1]}/stream/s-2/${realId}/sub`;
-      try {
-        const h2 = await getText(alt, { headers: { Referer: pageUrl } });
-        const id2 = (h2.match(/id="megaplay-player"[\s\S]*?data-id="(\d+)"/) || [])[1];
-        if (id2) {
-          const s2 = await sources(BASES[1], alt, id2);
-          if (s2) {
-            out.push(
-              makeStream(ctx, {
-                lang: "en",
-                source: "MegaPlay",
-                server: "Vidwish",
-                providerId: "megaplay",
-                url: s2.file,
-                quality: "1080p",
-                format: "m3u8",
-                headers: { Referer: `${BASES[1]}/`, Origin: BASES[1] },
-                subtitles: s2.subs,
-              })
-            );
-          }
-        }
-      } catch (e) {
-        log("vidwish", e.message);
-      }
-    }
     if (out.length) return out;
   }
   return [];
 }
 
-export const getStreams = defineProvider({ id: "megaplay", run });
+export const getStreams = defineProvider({ id: "megaplay", run, titles: false });

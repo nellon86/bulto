@@ -34,26 +34,20 @@ async function malIdOf(slug) {
 }
 
 async function findSlug(ctx) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean);
-  const tried = new Set();
-  for (const q of queries) {
-    const results = await search(q).catch(() => []);
-    const ranked = results
-      .map((r) => ({ ...r, score: titleScore(r.title, ctx) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-    for (const r of ranked) {
-      if (tried.has(r.slug)) continue;
-      tried.add(r.slug);
-      if (ctx.malId) {
-        const mal = await malIdOf(r.slug).catch(() => null);
-        if (Number(mal) === Number(ctx.malId)) return r.slug;
-      } else if (r.score === 2) {
-        return r.slug;
-      }
-    }
-  }
-  return null;
+  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const seen = new Set();
+  const ranked = lists
+    .flat()
+    .filter((r) => (seen.has(r.slug) ? false : seen.add(r.slug)))
+    .map((r) => ({ ...r, score: titleScore(r.title, ctx) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+  if (!ctx.malId) return ranked[0] && ranked[0].score === 2 ? ranked[0].slug : null;
+  // Comprueba el MAL de los candidatos en paralelo.
+  const mals = await Promise.all(ranked.map((r) => malIdOf(r.slug).catch(() => null)));
+  const i = mals.findIndex((m) => Number(m) === Number(ctx.malId));
+  return i >= 0 ? ranked[i].slug : null;
 }
 
 function subServers(html) {

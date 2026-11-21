@@ -19,7 +19,7 @@ function tmdbKey() {
 
 function tmdb(path) {
   const sep = path.includes("?") ? "&" : "?";
-  return tryJson(`${TMDB}${path}${sep}api_key=${tmdbKey()}`, { timeout: 8000 });
+  return tryJson(`${TMDB}${path}${sep}api_key=${tmdbKey()}`, { timeout: 6000 });
 }
 
 function dayDiff(a, b) {
@@ -31,23 +31,28 @@ function dayDiff(a, b) {
 }
 
 async function aniZip(param, value) {
-  return tryJson(`https://api.ani.zip/mappings?${param}=${encodeURIComponent(value)}`, { timeout: 8000 });
+  return tryJson(`https://api.ani.zip/mappings?${param}=${encodeURIComponent(value)}`, { timeout: 6000 });
 }
 
-async function anilistMedia(id) {
+// Datos de AniList de varias entradas en una sola consulta.
+async function anilistBatch(ids) {
+  const list = (ids || []).map(Number).filter(Boolean);
+  if (!list.length) return {};
   const query =
-    "query($id:Int){Media(id:$id,type:ANIME){id idMal format episodes seasonYear title{romaji english native} synonyms}}";
+    "query($ids:[Int]){Page(perPage:25){media(id_in:$ids,type:ANIME){id idMal format episodes seasonYear title{romaji english native} synonyms}}}";
   try {
     const res = await getJson("https://graphql.anilist.co", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ query, variables: { id: Number(id) } }),
-      timeout: 8000,
+      body: JSON.stringify({ query, variables: { ids: list } }),
+      timeout: 6000,
     });
-    return (res && res.data && res.data.Media) || null;
+    const out = {};
+    for (const m of (res && res.data && res.data.Page && res.data.Page.media) || []) out[m.id] = m;
+    return out;
   } catch (e) {
     log("anilist", e && e.message);
-    return null;
+    return {};
   }
 }
 
@@ -59,7 +64,7 @@ async function anilistSearch(search, format) {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ query, variables: { s: search } }),
-      timeout: 8000,
+      timeout: 6000,
     });
     const list = (res && res.data && res.data.Page && res.data.Page.media) || [];
     if (format === "movie") {
@@ -95,8 +100,8 @@ function uniq(list) {
 }
 
 // Contexto final que reciben los scrapers.
-async function buildContext(anilistId, malId, episode, zip, extra) {
-  const media = await anilistMedia(anilistId);
+function buildContext(anilistId, malId, episode, zip, extra, mediaMap) {
+  const media = (mediaMap && mediaMap[anilistId]) || null;
   const z = (zip && zip.titles) || {};
   const romaji = (media && media.title && media.title.romaji) || z["x-jat"] || "";
   const english = (media && media.title && media.title.english) || z.en || "";
@@ -114,7 +119,7 @@ async function buildContext(anilistId, malId, episode, zip, extra) {
   ]).filter((t) => !/[぀-ヿ一-鿿가-힯]/.test(t));
   return {
     anilistId: Number(anilistId),
-    malId: malId ? Number(malId) : (media && media.idMal) || null,
+    malId: malId ? Number(malId) : (media && media.idMal) || (zip && zip.mappings && zip.mappings.mal_id) || null,
     episode: Number(episode) || 1,
     isMovie: !!extra.isMovie,
     format: (media && media.format) || null,
@@ -141,7 +146,9 @@ function parseSpecialId(raw) {
   return null;
 }
 
-export async function resolveAnime(rawId, mediaType, season, episode) {
+// opts.titles = false: el scraper solo necesita los IDs (se ahorra AniList).
+export async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
+  const wantTitles = opts.titles !== false;
   const isMovie = mediaType === "movie";
   const special = parseSpecialId(rawId);
   if (special) {
@@ -149,10 +156,8 @@ export async function resolveAnime(rawId, mediaType, season, episode) {
     const zip = await aniZip(param, special.id);
     const al = zip && zip.mappings && zip.mappings.anilist_id;
     if (!al) return null;
-    return buildContext(al, zip.mappings.mal_id, isMovie ? 1 : special.episode || episode || 1, zip, {
-      isMovie,
-      season,
-    });
+    const media = wantTitles ? await anilistBatch([al]) : {};
+    return buildContext(al, zip.mappings.mal_id, isMovie ? 1 : special.episode || episode || 1, zip, { isMovie, season }, media);
   }
 
   let tmdbId = String(rawId || "").trim();
@@ -165,7 +170,15 @@ export async function resolveAnime(rawId, mediaType, season, episode) {
   tmdbId = tmdbId.replace(/^tmdb:/, "");
   if (!/^\d+$/.test(tmdbId)) return null;
 
-  const details = await tmdb(`/${isMovie ? "movie" : "tv"}/${tmdbId}`);
+  const S = Number(season) || 1;
+  const E = Number(episode) || 1;
+
+  // Primera ronda en paralelo: ficha de TMDB, temporada de TMDB y mapeo de ARM.
+  const [details, seasonData, armRaw] = await Promise.all([
+    tmdb(`/${isMovie ? "movie" : "tv"}/${tmdbId}`),
+    isMovie ? Promise.resolve(null) : tmdb(`/tv/${tmdbId}/season/${S}`),
+    tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 6000 }),
+  ]);
   if (!details) return null;
   const tmdbTitle = details.name || details.title || "";
   const tmdbOriginal = details.original_name || details.original_title || "";
@@ -176,29 +189,27 @@ export async function resolveAnime(rawId, mediaType, season, episode) {
     log("no parece anime:", tmdbTitle);
     return null;
   }
-
-  const arm = (await tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 8000 })) || [];
-  let candidates = arm.filter((e) => e && e.anilist);
+  let candidates = (armRaw || []).filter((e) => e && e.anilist);
 
   if (isMovie) {
     let pick = candidates[0];
+    let found = [];
     if (!pick) {
-      const found = await anilistSearch(tmdbOriginal || tmdbTitle, "movie");
+      found = await anilistSearch(tmdbOriginal || tmdbTitle, "movie");
       const byYear = found.find((m) => !year || !m.seasonYear || Math.abs(m.seasonYear - year) <= 1) || found[0];
       if (!byYear) return null;
       pick = { anilist: byYear.id, myanimelist: byYear.idMal };
     }
-    const zip = await aniZip("anilist_id", pick.anilist);
-    return buildContext(pick.anilist, pick.myanimelist, 1, zip, { isMovie, tmdbTitle, tmdbOriginal, year });
+    const [zip, media] = await Promise.all([
+      aniZip("anilist_id", pick.anilist),
+      wantTitles ? anilistBatch([pick.anilist]) : Promise.resolve({}),
+    ]);
+    return buildContext(pick.anilist, pick.myanimelist, 1, zip, { isMovie, tmdbTitle, tmdbOriginal, year }, media);
   }
-
-  const S = Number(season) || 1;
-  const E = Number(episode) || 1;
 
   // Fecha de emisión del episodio en TMDB y su posición entre los del mismo día.
   let airDate = null;
   let dayIndex = 0;
-  const seasonData = await tmdb(`/tv/${tmdbId}/season/${S}`);
   if (seasonData && Array.isArray(seasonData.episodes)) {
     const target = seasonData.episodes.find((e) => e.episode_number === E);
     if (target && target.air_date) {
@@ -214,41 +225,40 @@ export async function resolveAnime(rawId, mediaType, season, episode) {
   if (!candidates.length) return null;
 
   // Primero las entradas cuya temporada TVDB coincide con la pedida.
-  candidates.sort((a, b) => {
-    const as = a["thetvdb-season"] === S ? 0 : 1;
-    const bs = b["thetvdb-season"] === S ? 0 : 1;
-    return as - bs;
-  });
+  candidates.sort((a, b) => (a["thetvdb-season"] === S ? 0 : 1) - (b["thetvdb-season"] === S ? 0 : 1));
   candidates = candidates.slice(0, 6);
-  const zips = await Promise.all(candidates.map((c) => aniZip("anilist_id", c.anilist)));
+
+  // Segunda ronda en paralelo: episodios de cada entrada (ani.zip) y títulos (AniList).
+  const [zips, media] = await Promise.all([
+    Promise.all(candidates.map((c) => aniZip("anilist_id", c.anilist))),
+    wantTitles ? anilistBatch(candidates.map((c) => c.anilist)) : Promise.resolve({}),
+  ]);
 
   const extra = { isMovie, tmdbTitle, tmdbOriginal, year, season: S, tmdbEpisode: E };
+  const ctx = (i, ep) => buildContext(candidates[i].anilist, candidates[i].myanimelist, ep, zips[i], extra, media);
 
   // 1) Coincidencia por fecha de emisión.
   if (airDate) {
     for (let i = 0; i < candidates.length; i++) {
-      const eps = numericEpisodes(zips[i]);
-      const sameDay = eps.filter((e) => dayDiff(e.airDate || e.airdate, airDate) <= 1);
-      if (sameDay.length) {
-        const hit = sameDay[Math.min(dayIndex, sameDay.length - 1)];
-        return buildContext(candidates[i].anilist, candidates[i].myanimelist, hit.key, zips[i], extra);
-      }
+      const sameDay = numericEpisodes(zips[i]).filter((e) => dayDiff(e.airDate || e.airdate, airDate) <= 1);
+      if (sameDay.length) return ctx(i, sameDay[Math.min(dayIndex, sameDay.length - 1)].key);
     }
   }
   // 2) Coincidencia por temporada y episodio TVDB.
   for (let i = 0; i < candidates.length; i++) {
     const hit = numericEpisodes(zips[i]).find((e) => e.seasonNumber === S && e.episodeNumber === E);
-    if (hit) return buildContext(candidates[i].anilist, candidates[i].myanimelist, hit.key, zips[i], extra);
+    if (hit) return ctx(i, hit.key);
   }
   // 3) Numeración absoluta (series largas con una sola entrada).
-  for (let i = 0; i < candidates.length; i++) {
-    const hit = numericEpisodes(zips[i]).find((e) => e.absoluteEpisodeNumber === E);
-    if (hit && S === 1) return buildContext(candidates[i].anilist, candidates[i].myanimelist, hit.key, zips[i], extra);
+  if (S === 1) {
+    for (let i = 0; i < candidates.length; i++) {
+      const hit = numericEpisodes(zips[i]).find((e) => e.absoluteEpisodeNumber === E);
+      if (hit) return ctx(i, hit.key);
+    }
   }
   // 4) Último recurso: la entrada de esa temporada con el mismo número.
   const bySeason = candidates.find((c) => c["thetvdb-season"] === S) || candidates[0];
-  const idx = candidates.indexOf(bySeason);
-  return buildContext(bySeason.anilist, bySeason.myanimelist, E, zips[idx], extra);
+  return ctx(candidates.indexOf(bySeason), E);
 }
 
 // Normaliza un título para comparar.

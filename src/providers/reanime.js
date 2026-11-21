@@ -58,4 +58,4 @@ async function run(ctx) {
   return Promise.all(tasks);
 }
 
-export const getStreams = defineProvider({ id: "reanime", run });
+export const getStreams = defineProvider({ id: "reanime", run, titles: false });

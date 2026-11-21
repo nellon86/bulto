@@ -18,8 +18,9 @@ async function search(q) {
 }
 
 async function findSlug(ctx) {
-  for (const q of [ctx.romaji, ctx.english].filter(Boolean)) {
-    const results = await search(q).catch(() => []);
+  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  for (const results of lists) {
     const ranked = results.map((r) => ({ ...r, score: titleScore(r.title, ctx) })).sort((a, b) => b.score - a.score);
     if (ranked[0] && ranked[0].score === 2) return ranked[0].slug;
     if (ranked.length === 1 && ranked[0].score === 1) return ranked[0].slug;

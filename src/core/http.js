@@ -17,7 +17,7 @@ export async function request(url, opts = {}) {
   const init = { method: opts.method || "GET", headers };
   if (opts.body !== undefined) init.body = opts.body;
   if (opts.redirect) init.redirect = opts.redirect;
-  return withTimeout(fetch(url, init), opts.timeout || 12000, url);
+  return withTimeout(fetch(url, init), opts.timeout || 8000, url);
 }
 
 export async function getText(url, opts = {}) {

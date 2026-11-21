@@ -25,14 +25,14 @@ function firstMedia(text) {
 }
 
 async function yourUpload(url, referer) {
-  const html = await getText(url, { headers: { Referer: referer || "https://www.yourupload.com/" } });
+  const html = await getText(url, { headers: { Referer: referer || "https://www.yourupload.com/" }, timeout: 6000 });
   const m = html.match(/og:video"\s+content="([^"]+)"/) || html.match(/file:\s*'([^']+\.mp4[^']*)'/);
   if (!m || !/^https?:\/\//.test(m[1]) || /novideo/i.test(m[1])) return null;
   return { url: m[1], headers: { Referer: "https://www.yourupload.com/" }, quality: "HD" };
 }
 
 async function mp4Upload(url) {
-  const html = await getText(url, { headers: { Referer: "https://www.mp4upload.com/" } });
+  const html = await getText(url, { headers: { Referer: "https://www.mp4upload.com/" }, timeout: 6000 });
   const m = html.match(/src:\s*"(https?:\/\/[^"]+\.mp4[^"]*)"/);
   if (!m) return null;
   return { url: m[1], headers: { Referer: "https://www.mp4upload.com/" }, quality: "HD" };
@@ -51,7 +51,7 @@ async function zilla(url) {
 
 // VidHide, StreamWish y familia: el enlace va dentro de código empaquetado.
 async function packedPlayer(url, referer) {
-  const html = await getText(url, { headers: { Referer: referer || origin(url) + "/" } });
+  const html = await getText(url, { headers: { Referer: referer || origin(url) + "/" }, timeout: 6000 });
   let text = html;
   const i = html.indexOf("eval(function(p,a,c,k,e,d)");
   if (i >= 0) {

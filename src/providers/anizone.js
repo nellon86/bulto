@@ -40,19 +40,16 @@ async function search(query) {
 const LANG = { en: "en", english: "en", es: "es", spa: "es", spanish: "es", it: "it", ita: "it", italian: "it" };
 
 async function run(ctx) {
-  const queries = [ctx.romaji, ctx.english].filter(Boolean);
+  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
   let pick = null;
-  for (const q of queries) {
-    const cards = await search(q).catch(() => []);
-    let best = 0;
-    for (const c of cards) {
-      const score = Math.max(...c.titles.map((t) => titleScore(t, ctx)));
-      if (score > best) {
-        best = score;
-        pick = c;
-      }
+  let best = 0;
+  for (const c of lists.flat()) {
+    const score = Math.max(...c.titles.map((t) => titleScore(t, ctx)));
+    if (score > best) {
+      best = score;
+      pick = c;
     }
-    if (pick && best === 2) break;
   }
   if (!pick) return [];
   const url = `${BASE}/anime/${pick.slug}/${ctx.episode}`;

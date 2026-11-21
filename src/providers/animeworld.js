@@ -29,22 +29,22 @@ async function search(q) {
 }
 
 async function findPage(ctx) {
-  const tried = new Set();
-  for (const q of [ctx.romaji, ctx.english].filter(Boolean)) {
-    const results = await search(q).catch(() => []);
-    const ranked = results
-      .map((r) => ({ ...r, score: Math.max(titleScore(r.title, ctx), titleScore(r.jtitle, ctx)) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-    for (const r of ranked) {
-      if (tried.has(r.href)) continue;
-      tried.add(r.href);
-      const html = await getText(BASE + r.href, { headers: HEADERS }).catch(() => null);
-      if (!html) continue;
-      const al = (html.match(/anilist\.co\/anime\/(\d+)/) || [])[1];
-      const mal = (html.match(/myanimelist\.net\/anime\/(\d+)/) || [])[1];
-      if (Number(al) === ctx.anilistId || (ctx.malId && Number(mal) === ctx.malId)) return html;
-    }
+  const queries = [ctx.romaji, ctx.english].filter(Boolean).slice(0, 2);
+  const lists = await Promise.all(queries.map((q) => search(q).catch(() => [])));
+  const seen = new Set();
+  const ranked = lists
+    .flat()
+    .filter((r) => (seen.has(r.href) ? false : seen.add(r.href)))
+    .map((r) => ({ ...r, score: Math.max(titleScore(r.title, ctx), titleScore(r.jtitle, ctx)) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+  // Abre las fichas candidatas en paralelo y se queda con la del ID correcto.
+  const pages = await Promise.all(ranked.map((r) => getText(BASE + r.href, { headers: HEADERS }).catch(() => null)));
+  for (const html of pages) {
+    if (!html) continue;
+    const al = (html.match(/anilist\.co\/anime\/(\d+)/) || [])[1];
+    const mal = (html.match(/myanimelist\.net\/anime\/(\d+)/) || [])[1];
+    if (Number(al) === ctx.anilistId || (ctx.malId && Number(mal) === ctx.malId)) return html;
   }
   return null;
 }
