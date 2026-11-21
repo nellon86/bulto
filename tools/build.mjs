@@ -15,7 +15,8 @@ const repos = [
   },
   {
     list: "tools/providers-dub.json",
-    manifest: "manifest-dub.json",
+    manifest: "dub/manifest.json",
+    dir: "dub/",
     name: "Anime DOBLADO (ES · IT)",
     description: "Anime doblado en castellano, latino e italiano; si no hay doblaje español, subtitulado en español.",
   },
@@ -23,10 +24,11 @@ const repos = [
 
 for (const repo of repos) {
   const list = JSON.parse(fs.readFileSync(repo.list, "utf8"));
+  fs.mkdirSync(`${repo.dir || ""}providers`, { recursive: true });
   for (const p of list) {
     await build({
       entryPoints: [`src/providers/${p.id}.js`],
-      outfile: `providers/${p.id}.js`,
+      outfile: `${repo.dir || ""}providers/${p.id}.js`,
       bundle: true,
       format: "cjs",
       platform: "neutral",

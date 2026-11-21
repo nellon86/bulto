@@ -2,7 +2,7 @@ name: test-scrapers
 on:
   push:
     branches: [nuvio-anime]
-    paths: ["providers/**", "tests/**", "tools/test.mjs", ".github/workflows/test.yml"]
+    paths: ["providers/**", "dub/**", "tests/**", "tools/test.mjs", ".github/workflows/test.yml"]
   workflow_dispatch:
     inputs:
       only:

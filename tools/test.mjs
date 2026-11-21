@@ -6,13 +6,13 @@ const require = createRequire(import.meta.url);
 const CryptoJS = require("crypto-js");
 
 const only = process.argv[2] ? process.argv[2].split(",") : null;
-const providers = ["tools/providers.json", "tools/providers-dub.json"]
-  .flatMap((f) => JSON.parse(fs.readFileSync(f, "utf8")))
+const providers = [["tools/providers.json", ""], ["tools/providers-dub.json", "dub/"]]
+  .flatMap(([f, dir]) => JSON.parse(fs.readFileSync(f, "utf8")).map((p) => ({ ...p, dir })))
   .filter((p) => !only || only.includes(p.id));
 const cases = JSON.parse(fs.readFileSync("tests/cases.json", "utf8"));
 
-function load(id) {
-  const code = fs.readFileSync(`providers/${id}.js`, "utf8");
+function load(id, dir = "") {
+  const code = fs.readFileSync(`${dir}providers/${id}.js`, "utf8");
   const module = { exports: {} };
   const req = (n) => (n === "crypto-js" ? CryptoJS : require(n));
   new Function("module", "exports", "require", code)(module, module.exports, req);
@@ -39,7 +39,7 @@ async function check(stream) {
 
 const rows = [];
 for (const p of providers) {
-  const getStreams = load(p.id);
+  const getStreams = load(p.id, p.dir);
   for (const c of cases) {
     const t0 = Date.now();
     let streams = [];

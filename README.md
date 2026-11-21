@@ -35,7 +35,7 @@ El workflow `test-scrapers` repite las pruebas en GitHub Actions en cada cambio 
 
 ## Versión doblada (repositorio aparte)
 
-URL para Nuvio: `https://raw.githubusercontent.com/nellon86/bulto/nuvio-anime/manifest-dub.json`
+URL para Nuvio: `https://raw.githubusercontent.com/nellon86/bulto/nuvio-anime/dub/manifest.json`
 
 | Scraper | Devuelve |
 |---|---|
