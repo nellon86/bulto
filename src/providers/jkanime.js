@@ -14,7 +14,7 @@ const HEADERS = { Referer: `${BASE}/` };
 async function search(q) {
   const html = await getText(`${BASE}/buscar/${encodeURIComponent(q)}/`, { headers: HEADERS });
   const out = [];
-  const re = /<div class="anime__item">[\s\S]*?<h5>\s*<a href="https:\/\/jkanime\.net\/([^"/]+)\/"[^>]*>([^<]+)<\/a>/g;
+  const re = /<h5>\s*<a\s+href="https:\/\/jkanime\.net\/([^"/]+)\/"[^>]*>([^<]+)<\/a>/g;
   let m;
   while ((m = re.exec(html))) out.push({ slug: m[1], title: decodeHtml(m[2]).trim() });
   return out;
