@@ -15,7 +15,9 @@ function load(id, dir = "") {
   const code = fs.readFileSync(`${dir}providers/${id}.js`, "utf8");
   const module = { exports: {} };
   const req = (n) => (n === "crypto-js" ? CryptoJS : require(n));
-  new Function("module", "exports", "require", code)(module, module.exports, req);
+  // TV=1 simula la app de Nuvio para TV, que no define setTimeout.
+  if (process.env.TV === "1") new Function("module", "exports", "require", "setTimeout", "clearTimeout", code)(module, module.exports, req, undefined, undefined);
+  else new Function("module", "exports", "require", code)(module, module.exports, req);
   return module.exports.getStreams;
 }
 

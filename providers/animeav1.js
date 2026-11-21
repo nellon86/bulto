@@ -31,7 +31,12 @@ module.exports = __toCommonJS(animeav1_exports);
 
 // src/core/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+var HAS_TIMERS = typeof setTimeout === "function";
+function limitServers(list, max = 3) {
+  return HAS_TIMERS ? list : list.slice(0, max);
+}
 function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return Promise.resolve(promise);
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error("timeout " + (label || ""))), ms);
@@ -641,6 +646,7 @@ async function episodeHtml(ctx, slug) {
   return getText(ctx.isMovie ? `${BASE}/media/${slug}/1` : `${BASE}/media/${slug}/${ctx.episode}`);
 }
 async function toStreams(ctx, servers, lang, providerId) {
+  servers = limitServers(servers);
   log("servidores", lang, servers.map((s) => s.server).join(","));
   const results = await settle(
     servers.map(async (s) => {

@@ -2,7 +2,7 @@
 // "... Castellano" / "... Latino"); las fichas sin sufijo son subtituladas.
 // Algunas fichas juntan todas las temporadas con numeración continua.
 
-import { getText, log, settle, decodeHtml } from "../core/http.js";
+import { getText, log, settle, decodeHtml, limitServers } from "../core/http.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { titleScore, norm } from "../core/mapping.js";
 import { extract, isSupported, hostRank } from "../core/extractors.js";
@@ -80,7 +80,7 @@ async function streamsFor(ctx, cards, lang, providerId) {
     if (!urls.length) continue;
     log("ficha", t.card.slug, "ep", t.ep, urls.length, "servidores");
     const results = await settle(
-      urls.map(async (u) => {
+      limitServers(urls).map(async (u) => {
         const r = await extract(u, `${BASE}/`);
         if (!r) return null;
         return makeStream(ctx, {

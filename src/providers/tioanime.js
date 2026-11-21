@@ -1,6 +1,6 @@
 // TioAnime (español, VOSE). Solo tiene versión subtitulada.
 
-import { getText, log, settle, decodeHtml } from "../core/http.js";
+import { getText, log, settle, decodeHtml, limitServers } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { pickByTitle, searchQueries } from "../core/mapping.js";
@@ -40,7 +40,7 @@ export async function runFor(ctx, providerId) {
   const servers = videos.map((v) => ({ server: v[0], url: v[1] })).filter((s) => isSupported(s.url))
     .sort((a, b) => hostRank(a.url) - hostRank(b.url));
   const results = await settle(
-    servers.map(async (s) => {
+    limitServers(servers).map(async (s) => {
       const r = await extract(s.url, `${BASE}/`);
       if (!r) return null;
       return makeStream(ctx, {

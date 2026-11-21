@@ -4,7 +4,19 @@
 export const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+// La app de Nuvio para TV no define setTimeout en su motor JavaScript (el
+// móvil sí). Sin temporizador no se puede imponer un límite: la petición sigue
+// sin él y el propio Nuvio corta el scraper a los 60 s.
+export const HAS_TIMERS = typeof setTimeout === "function";
+
+// Sin temporizadores (TV), las peticiones van además una detrás de otra, así
+// que cada scraper prueba solo los mejores servidores.
+export function limitServers(list, max = 3) {
+  return HAS_TIMERS ? list : list.slice(0, max);
+}
+
 export function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return Promise.resolve(promise);
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error("timeout " + (label || ""))), ms);

@@ -1,7 +1,7 @@
 // AnimeAV1 (español, VOSE). Identifica la serie por su ID de MAL y extrae
 // solo los servidores de la sección SUB.
 
-import { getText, getJson, log, settle } from "../core/http.js";
+import { getText, getJson, log, settle, limitServers } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { titleScore, searchQueries } from "../core/mapping.js";
@@ -68,6 +68,7 @@ export async function episodeHtml(ctx, slug) {
 
 // Extrae los enlaces de una lista de servidores y les da formato.
 export async function toStreams(ctx, servers, lang, providerId) {
+  servers = limitServers(servers);
   log("servidores", lang, servers.map((s) => s.server).join(","));
   const results = await settle(
     servers.map(async (s) => {

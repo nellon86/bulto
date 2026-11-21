@@ -27,7 +27,12 @@ module.exports = __toCommonJS(dub_latanime_exports);
 
 // src/core/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+var HAS_TIMERS = typeof setTimeout === "function";
+function limitServers(list, max = 3) {
+  return HAS_TIMERS ? list : list.slice(0, max);
+}
 function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return Promise.resolve(promise);
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error("timeout " + (label || ""))), ms);
@@ -645,7 +650,7 @@ async function streamsFor(ctx, cards, lang, providerId) {
     if (!urls.length) continue;
     log("ficha", t.card.slug, "ep", t.ep, urls.length, "servidores");
     const results = await settle(
-      urls.map(async (u) => {
+      limitServers(urls).map(async (u) => {
         const r = await extract(u, `${BASE}/`);
         if (!r) return null;
         return makeStream(ctx, {

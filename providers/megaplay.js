@@ -38,7 +38,9 @@ var import_crypto_js = __toESM(require("crypto-js"), 1);
 
 // src/core/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+var HAS_TIMERS = typeof setTimeout === "function";
 function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return Promise.resolve(promise);
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error("timeout " + (label || ""))), ms);

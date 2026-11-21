@@ -1,7 +1,7 @@
 // MonosChinos (español, VOSE). Las fichas siguen las entradas de AniList
 // (cada temporada aparte); los servidores salen de una llamada AJAX.
 
-import { getText, request, log, settle, decodeHtml } from "../core/http.js";
+import { getText, request, log, settle, decodeHtml, limitServers } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { pickByTitle, searchQueries } from "../core/mapping.js";
@@ -53,7 +53,7 @@ async function run(ctx) {
   }
   urls.sort((a, b) => hostRank(a) - hostRank(b));
   log("servidores", urls.length);
-  const results = await settle(urls.map((u) => extract(u, page)));
+  const results = await settle(limitServers(urls).map((u) => extract(u, page)));
   return results.filter(Boolean).map((r) =>
     makeStream(ctx, {
       lang: "es",

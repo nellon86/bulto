@@ -27,7 +27,12 @@ module.exports = __toCommonJS(jkanime_exports);
 
 // src/core/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+var HAS_TIMERS = typeof setTimeout === "function";
+function limitServers(list, max = 3) {
+  return HAS_TIMERS ? list : list.slice(0, max);
+}
 function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return Promise.resolve(promise);
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error("timeout " + (label || ""))), ms);
@@ -657,11 +662,11 @@ async function run(ctx) {
   }
   log("servidores", [...own, ...external].map((s) => s.name).join(",") || "ninguno");
   const results = await settle([
-    ...own.map(async (s) => {
+    ...limitServers(own, 1).map(async (s) => {
       const r = await ownPlayer(s.url, page);
       return r && { ...r, server: s.name };
     }),
-    ...external.map((s) => extract(s.url, page))
+    ...limitServers(external, 2).map((s) => extract(s.url, page))
   ]);
   const seen = /* @__PURE__ */ new Set();
   return results.filter((r) => r && r.url && !seen.has(r.url.split("?")[0]) && seen.add(r.url.split("?")[0])).map(

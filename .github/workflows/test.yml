@@ -8,6 +8,9 @@ on:
       only:
         description: "Scrapers separados por comas (vacío = todos)"
         required: false
+      tv:
+        description: "1 = simular Nuvio TV (sin setTimeout)"
+        required: false
   schedule:
     - cron: "17 6 * * 1"
 jobs:
@@ -20,3 +23,5 @@ jobs:
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
       - run: node tools/test.mjs "${{ github.event.inputs.only }}"
+        env:
+          TV: ${{ github.event.inputs.tv }}

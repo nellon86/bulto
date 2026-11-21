@@ -27,7 +27,12 @@ module.exports = __toCommonJS(dub_tioanime_exports);
 
 // src/core/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+var HAS_TIMERS = typeof setTimeout === "function";
+function limitServers(list, max = 3) {
+  return HAS_TIMERS ? list : list.slice(0, max);
+}
 function withTimeout(promise, ms, label) {
+  if (!HAS_TIMERS) return Promise.resolve(promise);
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error("timeout " + (label || ""))), ms);
@@ -643,7 +648,7 @@ async function runFor(ctx, providerId) {
   }
   const servers = videos.map((v) => ({ server: v[0], url: v[1] })).filter((s) => isSupported(s.url)).sort((a, b) => hostRank(a.url) - hostRank(b.url));
   const results = await settle(
-    servers.map(async (s) => {
+    limitServers(servers).map(async (s) => {
       const r = await extract(s.url, `${BASE}/`);
       if (!r) return null;
       return makeStream(ctx, {

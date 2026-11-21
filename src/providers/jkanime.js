@@ -2,7 +2,7 @@
 // en décimas de segundo; además se aprovechan MP4Upload, VidHide y Voe.
 // Solo se usan los servidores marcados como subtitulados (lang 1 / lg_1).
 
-import { getText, log, settle, decodeHtml } from "../core/http.js";
+import { getText, log, settle, decodeHtml, limitServers } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { pickByTitle, searchQueries } from "../core/mapping.js";
@@ -66,11 +66,11 @@ async function run(ctx) {
   log("servidores", [...own, ...external].map((s) => s.name).join(",") || "ninguno");
 
   const results = await settle([
-    ...own.map(async (s) => {
+    ...limitServers(own, 1).map(async (s) => {
       const r = await ownPlayer(s.url, page);
       return r && { ...r, server: s.name };
     }),
-    ...external.map((s) => extract(s.url, page)),
+    ...limitServers(external, 2).map((s) => extract(s.url, page)),
   ]);
   const seen = new Set();
   return results
