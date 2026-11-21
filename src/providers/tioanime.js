@@ -4,7 +4,7 @@ import { getText, log, settle, decodeHtml } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { titleScore } from "../core/mapping.js";
-import { extract, isSupported } from "../core/extractors.js";
+import { extract, isSupported, hostRank } from "../core/extractors.js";
 
 const BASE = "https://tioanime.com";
 
@@ -40,7 +40,8 @@ async function run(ctx) {
     log("videos", e.message);
     return [];
   }
-  const servers = videos.map((v) => ({ server: v[0], url: v[1] })).filter((s) => isSupported(s.url));
+  const servers = videos.map((v) => ({ server: v[0], url: v[1] })).filter((s) => isSupported(s.url))
+    .sort((a, b) => hostRank(a.url) - hostRank(b.url));
   const results = await settle(
     servers.map(async (s) => {
       const r = await extract(s.url, `${BASE}/`);

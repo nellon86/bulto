@@ -321,7 +321,7 @@ function makeStream(ctx, opts) {
   const lang = opts.lang;
   const quality = normalizeQuality(opts.quality);
   const ep = ctx.isMovie ? "Pel\xEDcula" : `Ep. ${ctx.episode}`;
-  const where = ctx.isMovie ? "" : ctx.season ? ` \xB7 T${ctx.season}E${ctx.tmdbEpisode}` : "";
+  const where = ctx.isMovie || !ctx.season || !ctx.tmdbEpisode ? "" : ` \xB7 T${ctx.season}E${ctx.tmdbEpisode}`;
   const lines = [
     `${ctx.display}${where}`,
     `${FLAGS[lang]} ${LABEL[lang]} \xB7 ${quality} \xB7 ${opts.format === "mp4" ? "MP4" : "HLS"}`,
@@ -410,7 +410,7 @@ function firstMedia(text) {
 async function yourUpload(url, referer) {
   const html = await getText(url, { headers: { Referer: referer || "https://www.yourupload.com/" } });
   const m = html.match(/og:video"\s+content="([^"]+)"/) || html.match(/file:\s*'([^']+\.mp4[^']*)'/);
-  if (!m) return null;
+  if (!m || !/^https?:\/\//.test(m[1]) || /novideo/i.test(m[1])) return null;
   return { url: m[1], headers: { Referer: "https://www.yourupload.com/" }, quality: "HD" };
 }
 async function mp4Upload(url) {
@@ -457,6 +457,12 @@ var HOSTS = [
     fn: packedPlayer
   }
 ];
+function hostRank(url) {
+  const order = ["HLS", "YourUpload", "MP4Upload", "VidHide"];
+  const name = hostName(url);
+  const i = order.indexOf(name);
+  return i < 0 ? 99 : i;
+}
 function hostName(url) {
   const h = HOSTS.find((x) => x.re.test(url));
   return h ? h.name : null;
@@ -509,7 +515,7 @@ async function run(ctx) {
     log("videos", e.message);
     return [];
   }
-  const servers = videos.map((v) => ({ server: v[0], url: v[1] })).filter((s) => isSupported(s.url));
+  const servers = videos.map((v) => ({ server: v[0], url: v[1] })).filter((s) => isSupported(s.url)).sort((a, b) => hostRank(a.url) - hostRank(b.url));
   const results = await settle(
     servers.map(async (s) => {
       const r = await extract(s.url, `${BASE}/`);

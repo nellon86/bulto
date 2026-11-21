@@ -5,7 +5,7 @@ import { getText, getJson, log, settle } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { titleScore } from "../core/mapping.js";
-import { extract, isSupported } from "../core/extractors.js";
+import { extract, isSupported, hostRank } from "../core/extractors.js";
 
 const BASE = "https://animeav1.com";
 
@@ -72,7 +72,8 @@ async function run(ctx) {
   if (!slug) return [];
   const path = ctx.isMovie ? `${BASE}/media/${slug}/1` : `${BASE}/media/${slug}/${ctx.episode}`;
   const html = await getText(path);
-  const servers = subServers(html).filter((s) => isSupported(s.url));
+  const servers = subServers(html).filter((s) => isSupported(s.url))
+    .sort((a, b) => hostRank(a.url) - hostRank(b.url));
   log("servidores", servers.map((s) => s.server).join(","));
   const results = await settle(
     servers.map(async (s) => {

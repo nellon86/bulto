@@ -9,7 +9,7 @@ export function makeStream(ctx, opts) {
   const lang = opts.lang;
   const quality = normalizeQuality(opts.quality);
   const ep = ctx.isMovie ? "Película" : `Ep. ${ctx.episode}`;
-  const where = ctx.isMovie ? "" : ctx.season ? ` · T${ctx.season}E${ctx.tmdbEpisode}` : "";
+  const where = ctx.isMovie || !ctx.season || !ctx.tmdbEpisode ? "" : ` · T${ctx.season}E${ctx.tmdbEpisode}`;
   const lines = [
     `${ctx.display}${where}`,
     `${FLAGS[lang]} ${LABEL[lang]} · ${quality} · ${opts.format === "mp4" ? "MP4" : "HLS"}`,

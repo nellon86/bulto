@@ -27,7 +27,7 @@ function firstMedia(text) {
 async function yourUpload(url, referer) {
   const html = await getText(url, { headers: { Referer: referer || "https://www.yourupload.com/" } });
   const m = html.match(/og:video"\s+content="([^"]+)"/) || html.match(/file:\s*'([^']+\.mp4[^']*)'/);
-  if (!m) return null;
+  if (!m || !/^https?:\/\//.test(m[1]) || /novideo/i.test(m[1])) return null;
   return { url: m[1], headers: { Referer: "https://www.yourupload.com/" }, quality: "HD" };
 }
 
@@ -80,6 +80,14 @@ const HOSTS = [
     fn: packedPlayer,
   },
 ];
+
+// Orden de preferencia: primero los más fiables.
+export function hostRank(url) {
+  const order = ["HLS", "YourUpload", "MP4Upload", "VidHide"];
+  const name = hostName(url);
+  const i = order.indexOf(name);
+  return i < 0 ? 99 : i;
+}
 
 export function hostName(url) {
   const h = HOSTS.find((x) => x.re.test(url));

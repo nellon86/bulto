@@ -310,7 +310,7 @@ function makeStream(ctx, opts) {
   const lang = opts.lang;
   const quality = normalizeQuality(opts.quality);
   const ep = ctx.isMovie ? "Pel\xEDcula" : `Ep. ${ctx.episode}`;
-  const where = ctx.isMovie ? "" : ctx.season ? ` \xB7 T${ctx.season}E${ctx.tmdbEpisode}` : "";
+  const where = ctx.isMovie || !ctx.season || !ctx.tmdbEpisode ? "" : ` \xB7 T${ctx.season}E${ctx.tmdbEpisode}`;
   const lines = [
     `${ctx.display}${where}`,
     `${FLAGS[lang]} ${LABEL[lang]} \xB7 ${quality} \xB7 ${opts.format === "mp4" ? "MP4" : "HLS"}`,
