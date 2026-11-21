@@ -34,7 +34,8 @@ export async function request(url, opts = {}) {
 
 export async function getText(url, opts = {}) {
   const res = await request(url, opts);
-  if (!res.ok && !opts.allowError) throw new Error("HTTP " + res.status + " " + url);
+  // status 0 = la conexión no se pudo hacer (en Nuvio TV, statusText trae el motivo).
+  if (!res.ok && !opts.allowError) throw new Error("HTTP " + res.status + (res.statusText ? " " + res.statusText : "") + " " + url);
   return res.text();
 }
 

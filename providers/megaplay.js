@@ -56,7 +56,7 @@ async function request(url, opts = {}) {
 }
 async function getText(url, opts = {}) {
   const res = await request(url, opts);
-  if (!res.ok && !opts.allowError) throw new Error("HTTP " + res.status + " " + url);
+  if (!res.ok && !opts.allowError) throw new Error("HTTP " + res.status + (res.statusText ? " " + res.statusText : "") + " " + url);
   return res.text();
 }
 async function getJson(url, opts = {}) {
