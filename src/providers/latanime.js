@@ -103,7 +103,9 @@ async function streamsFor(ctx, cards, lang, providerId) {
 
 // Doblajes (castellano y latino); si no hay ninguno, la versión subtitulada.
 export async function runDub(ctx, providerId) {
-  const queries = [ctx.titleEs, ctx.titleEsLat, ctx.english, ctx.romaji].filter(Boolean);
+  // El buscador no tolera signos: "Your Name." no encuentra nada y "Your Name" sí.
+  const clean = (q) => String(q).replace(/×/g, " x ").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+  const queries = [ctx.titleEs, ctx.titleEsLat, ctx.english, ctx.romaji].filter(Boolean).map(clean).filter(Boolean);
   const unique = [...new Set(queries)].slice(0, 4);
   const lists = await Promise.all(unique.map((q) => search(q).catch(() => [])));
   const seen = new Set();

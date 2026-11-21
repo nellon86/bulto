@@ -598,7 +598,8 @@ async function streamsFor(ctx, cards, lang, providerId) {
   return [];
 }
 async function runDub(ctx, providerId) {
-  const queries = [ctx.titleEs, ctx.titleEsLat, ctx.english, ctx.romaji].filter(Boolean);
+  const clean = (q) => String(q).replace(/×/g, " x ").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+  const queries = [ctx.titleEs, ctx.titleEsLat, ctx.english, ctx.romaji].filter(Boolean).map(clean).filter(Boolean);
   const unique = [...new Set(queries)].slice(0, 4);
   const lists = await Promise.all(unique.map((q) => search(q).catch(() => [])));
   const seen = /* @__PURE__ */ new Set();
