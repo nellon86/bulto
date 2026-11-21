@@ -36,12 +36,25 @@ function withTimeout(promise, ms, label) {
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
+var deadline = 0;
+var deadHosts = /* @__PURE__ */ new Set();
+function startBudget(ms) {
+  deadline = HAS_TIMERS ? 0 : Date.now() + ms;
+  deadHosts.clear();
+}
 async function request(url, opts = {}) {
+  const host = origin(url);
+  if (!HAS_TIMERS) {
+    if (deadline && Date.now() > deadline) throw new Error("sin tiempo " + host);
+    if (deadHosts.has(host)) throw new Error("no conecta " + host);
+  }
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const init = { method: opts.method || "GET", headers };
   if (opts.body !== void 0) init.body = opts.body;
   if (opts.redirect) init.redirect = opts.redirect;
-  return withTimeout(fetch(url, init), opts.timeout || 8e3, url);
+  const res = await withTimeout(fetch(url, init), opts.timeout || 8e3, url);
+  if (!HAS_TIMERS && res && res.status === 0) deadHosts.add(host);
+  return res;
 }
 async function getText(url, opts = {}) {
   const res = await request(url, opts);
@@ -79,6 +92,10 @@ function log(...args) {
     console.log(logPrefix, ...args);
   } catch (_) {
   }
+}
+function origin(url) {
+  const m = String(url).match(/^(https?:\/\/[^/]+)/i);
+  return m ? m[1] : "";
 }
 
 // src/core/mapping.js
@@ -402,16 +419,16 @@ async function pickBestVariant(stream, fetchText) {
 function resolveUrl(base, uri) {
   if (/^https?:\/\//i.test(uri)) return uri;
   if (uri.startsWith("//")) return base.split(":")[0] + ":" + uri;
-  const origin = (base.match(/^https?:\/\/[^/]+/i) || [""])[0];
-  if (uri.startsWith("/")) return origin + uri;
+  const origin2 = (base.match(/^https?:\/\/[^/]+/i) || [""])[0];
+  if (uri.startsWith("/")) return origin2 + uri;
   const dir = base.split("?")[0].replace(/[^/]*$/, "");
-  const parts = (dir.slice(origin.length) + uri).split("/");
+  const parts = (dir.slice(origin2.length) + uri).split("/");
   const out = [];
   for (const p of parts) {
     if (p === "..") out.pop();
     else if (p !== ".") out.push(p);
   }
-  return origin + out.join("/").replace(/^\/?/, "/");
+  return origin2 + out.join("/").replace(/^\/?/, "/");
 }
 
 // src/core/provider.js
@@ -446,6 +463,7 @@ function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
   }
   async function getStreamsReal(tmdbId, mediaType, season, episode) {
     setLogPrefix(`[${id}]`);
+    startBudget(25e3);
     const t0 = Date.now();
     try {
       log("pedido", tmdbId, mediaType, season, episode);

@@ -24,12 +24,31 @@ export function withTimeout(promise, ms, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+// En Nuvio TV no hay temporizadores y las peticiones van en fila: una web
+// bloqueada tarda 30 s en fallar y Nuvio mata el scraper a los 60 s, perdiendo
+// también lo que ya se había encontrado. Por eso, sin temporizadores:
+//  - pasado el plazo no se empiezan peticiones nuevas;
+//  - un servidor que no conecta no se vuelve a intentar en la misma búsqueda.
+let deadline = 0;
+const deadHosts = new Set();
+export function startBudget(ms) {
+  deadline = HAS_TIMERS ? 0 : Date.now() + ms;
+  deadHosts.clear();
+}
+
 export async function request(url, opts = {}) {
+  const host = origin(url);
+  if (!HAS_TIMERS) {
+    if (deadline && Date.now() > deadline) throw new Error("sin tiempo " + host);
+    if (deadHosts.has(host)) throw new Error("no conecta " + host);
+  }
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const init = { method: opts.method || "GET", headers };
   if (opts.body !== undefined) init.body = opts.body;
   if (opts.redirect) init.redirect = opts.redirect;
-  return withTimeout(fetch(url, init), opts.timeout || 8000, url);
+  const res = await withTimeout(fetch(url, init), opts.timeout || 8000, url);
+  if (!HAS_TIMERS && res && res.status === 0) deadHosts.add(host);
+  return res;
 }
 
 export async function getText(url, opts = {}) {

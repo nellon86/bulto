@@ -1,5 +1,5 @@
 import { resolveAnime } from "./mapping.js";
-import { setLogPrefix, log, withTimeout, getText, startCapture, stopCapture, HAS_TIMERS } from "./http.js";
+import { setLogPrefix, log, withTimeout, getText, startCapture, stopCapture, HAS_TIMERS, startBudget } from "./http.js";
 import { dedupe, pickBestVariant } from "./streams.js";
 
 // Envuelve un scraper: resuelve el anime, llama al scraper y nunca lanza error.
@@ -42,6 +42,9 @@ export function defineProvider({ id, run, timeout = 25000, titles = true }) {
 
   async function getStreamsReal(tmdbId, mediaType, season, episode) {
     setLogPrefix(`[${id}]`);
+    // Sin temporizadores (TV): no empezar peticiones pasados 25 s, para que
+    // una conexión colgada (30 s) termine antes del límite de 60 s de Nuvio.
+    startBudget(25000);
     const t0 = Date.now();
     try {
       log("pedido", tmdbId, mediaType, season, episode);

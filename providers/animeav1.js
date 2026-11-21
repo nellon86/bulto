@@ -43,12 +43,25 @@ function withTimeout(promise, ms, label) {
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
+var deadline = 0;
+var deadHosts = /* @__PURE__ */ new Set();
+function startBudget(ms) {
+  deadline = HAS_TIMERS ? 0 : Date.now() + ms;
+  deadHosts.clear();
+}
 async function request(url, opts = {}) {
+  const host = origin(url);
+  if (!HAS_TIMERS) {
+    if (deadline && Date.now() > deadline) throw new Error("sin tiempo " + host);
+    if (deadHosts.has(host)) throw new Error("no conecta " + host);
+  }
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const init = { method: opts.method || "GET", headers };
   if (opts.body !== void 0) init.body = opts.body;
   if (opts.redirect) init.redirect = opts.redirect;
-  return withTimeout(fetch(url, init), opts.timeout || 8e3, url);
+  const res = await withTimeout(fetch(url, init), opts.timeout || 8e3, url);
+  if (!HAS_TIMERS && res && res.status === 0) deadHosts.add(host);
+  return res;
 }
 async function getText(url, opts = {}) {
   const res = await request(url, opts);
@@ -506,6 +519,7 @@ function defineProvider({ id, run: run2, timeout = 25e3, titles = true }) {
   }
   async function getStreamsReal(tmdbId, mediaType, season, episode) {
     setLogPrefix(`[${id}]`);
+    startBudget(25e3);
     const t0 = Date.now();
     try {
       log("pedido", tmdbId, mediaType, season, episode);
