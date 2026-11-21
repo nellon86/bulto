@@ -559,7 +559,7 @@ async function servers(slug, ep) {
 }
 function choose(cards, ctx) {
   const S = ctx.season || 1;
-  const matching = cards.filter((c) => titleScore(c.base, ctx) > 0 || titleScore(c.title, ctx) > 0);
+  const matching = cards.filter((c) => c.ok);
   if (ctx.isMovie) return matching.length ? [{ card: matching[0], ep: 1 }] : [];
   const tries = [];
   const bySeason = matching.find((c) => c.season === S);
@@ -603,7 +603,12 @@ async function runDub(ctx, providerId) {
   const lists = await Promise.all(unique.map((q) => search(q).catch(() => [])));
   const seen = /* @__PURE__ */ new Set();
   const cards = lists.flat().filter((c) => seen.has(c.slug) ? false : seen.add(c.slug));
-  log("fichas", cards.map((c) => `${c.slug}[${c.lang}]`).join(" "));
+  const family = (slug) => slug.replace(/-(castellano|latino|catalan)$/, "");
+  const ok = cards.filter((c) => titleScore(c.base, ctx) > 0 || titleScore(c.title, ctx) > 0);
+  const fams = new Set(ok.map((c) => family(c.slug)));
+  const bases = new Set(ok.map((c) => norm(c.base)));
+  for (const c of cards) c.ok = fams.has(family(c.slug)) || bases.has(norm(c.base));
+  log("fichas", cards.filter((c) => c.ok).map((c) => `${c.slug}[${c.lang}${c.season ? " T" + c.season : ""}]`).join(" ") || "ninguna");
   const [cast, lat] = await Promise.all([
     streamsFor(ctx, cards.filter((c) => c.lang === "es-cast"), "es-cast", providerId),
     streamsFor(ctx, cards.filter((c) => c.lang === "es-lat"), "es-lat", providerId)
