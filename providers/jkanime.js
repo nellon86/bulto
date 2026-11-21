@@ -93,6 +93,16 @@ async function settle(promises) {
   })));
   return out;
 }
+function allMatches(text, re) {
+  const out = [];
+  const r = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+  let m;
+  while (m = r.exec(String(text || ""))) {
+    out.push(m);
+    if (m[0] === "") r.lastIndex++;
+  }
+  return out;
+}
 
 // src/core/mapping.js
 var TMDB = "https://api.themoviedb.org/3";
@@ -340,7 +350,7 @@ function titleScore(siteTitle, ctx) {
   return best;
 }
 function cleanQuery(q) {
-  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^0-9A-Za-z\u00C0-\u024F]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function searchQueries(ctx, max = 3) {
   const out = [];
@@ -645,9 +655,9 @@ async function run(ctx) {
   const page = `${BASE}/${slug}/${ctx.isMovie ? 1 : ctx.episode}/`;
   const html = await getText(page, { headers: HEADERS });
   const tabs = {};
-  for (const m of html.matchAll(/data-id="(\d+)"\s+class="[^"]*\blg_(\d+)[^"]*"[^>]*>([^<]+)</g)) tabs[m[1]] = { lang: m[2], name: m[3].trim() };
+  for (const m of allMatches(html, /data-id="(\d+)"\s+class="[^"]*\blg_(\d+)[^"]*"[^>]*>([^<]+)</g)) tabs[m[1]] = { lang: m[2], name: m[3].trim() };
   const own = [];
-  for (const m of html.matchAll(/video\[(\d+)\]\s*=\s*'<iframe[^>]+src="(https:\/\/jkanime\.net\/jkplayer\/umv?\?[^"]+)"/g)) {
+  for (const m of allMatches(html, /video\[(\d+)\]\s*=\s*'<iframe[^>]+src="(https:\/\/jkanime\.net\/jkplayer\/umv?\?[^"]+)"/g)) {
     const t = tabs[m[1]];
     if (!t || t.lang === "1") own.push({ name: t && t.name || "JK", url: m[2] });
   }

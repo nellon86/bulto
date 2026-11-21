@@ -2,7 +2,7 @@
 // en décimas de segundo; además se aprovechan MP4Upload, VidHide y Voe.
 // Solo se usan los servidores marcados como subtitulados (lang 1 / lg_1).
 
-import { getText, log, settle, decodeHtml, limitServers } from "../core/http.js";
+import { getText, log, settle, decodeHtml, limitServers, allMatches } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { pickByTitle, searchQueries } from "../core/mapping.js";
@@ -42,9 +42,9 @@ async function run(ctx) {
 
   // Pestañas: <a data-id="N" class="... lg_1 ...">Nombre</a> ↔ video[N] = '<iframe src="...">'
   const tabs = {};
-  for (const m of html.matchAll(/data-id="(\d+)"\s+class="[^"]*\blg_(\d+)[^"]*"[^>]*>([^<]+)</g)) tabs[m[1]] = { lang: m[2], name: m[3].trim() };
+  for (const m of allMatches(html, /data-id="(\d+)"\s+class="[^"]*\blg_(\d+)[^"]*"[^>]*>([^<]+)</g)) tabs[m[1]] = { lang: m[2], name: m[3].trim() };
   const own = [];
-  for (const m of html.matchAll(/video\[(\d+)\]\s*=\s*'<iframe[^>]+src="(https:\/\/jkanime\.net\/jkplayer\/umv?\?[^"]+)"/g)) {
+  for (const m of allMatches(html, /video\[(\d+)\]\s*=\s*'<iframe[^>]+src="(https:\/\/jkanime\.net\/jkplayer\/umv?\?[^"]+)"/g)) {
     const t = tabs[m[1]];
     if (!t || t.lang === "1") own.push({ name: (t && t.name) || "JK", url: m[2] });
   }

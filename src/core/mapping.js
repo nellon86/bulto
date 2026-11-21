@@ -308,7 +308,8 @@ export function cleanQuery(q) {
   return String(q || "")
     .replace(/×/g, " x ")
     .replace(/['’]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    // Sin \p{L}: el motor de Nuvio TV puede no admitir esas clases Unicode.
+    .replace(/[^0-9A-Za-z\u00C0-\u024F]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

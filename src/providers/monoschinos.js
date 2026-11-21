@@ -1,7 +1,7 @@
 // MonosChinos (español, VOSE). Las fichas siguen las entradas de AniList
 // (cada temporada aparte); los servidores salen de una llamada AJAX.
 
-import { getText, request, log, settle, decodeHtml, limitServers } from "../core/http.js";
+import { getText, request, log, settle, decodeHtml, limitServers, allMatches } from "../core/http.js";
 import { defineProvider } from "../core/provider.js";
 import { makeStream, guessFormat } from "../core/streams.js";
 import { pickByTitle, searchQueries } from "../core/mapping.js";
@@ -13,7 +13,7 @@ const HEADERS = { Referer: `${BASE}/` };
 async function search(q) {
   const html = await getText(`${BASE}/animes?buscar=${encodeURIComponent(q).replace(/%20/g, "+")}`, { headers: HEADERS });
   const out = [];
-  for (const m of html.matchAll(/ficha_efecto["'][^>]*>([\s\S]*?)<\/li>/gi)) {
+  for (const m of allMatches(html, /ficha_efecto["'][^>]*>([\s\S]*?)<\/li>/gi)) {
     const title = decodeHtml((m[1].match(/title=["']([^"']*)["']/) || [])[1] || "")
       .replace(/^Ver Anime\s+/i, "")
       .replace(/\s+Online Gratis$/i, "")
@@ -45,7 +45,7 @@ async function run(ctx) {
   });
   const opt = await res.text();
   const urls = [];
-  for (const m of opt.matchAll(/data-player=["']([^"']+)["']/g)) {
+  for (const m of allMatches(opt, /data-player=["']([^"']+)["']/g)) {
     try {
       const u = atob(m[1]).trim().replace(/^https?:\/\/monoschinos2\.com\/reproductor\?url=/, "");
       if (/^https?:\/\//.test(u) && isSupported(u) && !urls.includes(u)) urls.push(u);

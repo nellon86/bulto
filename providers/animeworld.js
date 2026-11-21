@@ -321,7 +321,7 @@ function titleScore(siteTitle, ctx) {
   return best;
 }
 function cleanQuery(q) {
-  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^0-9A-Za-z\u00C0-\u024F]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function searchQueries(ctx, max = 3) {
   const out = [];

@@ -103,3 +103,15 @@ export async function settle(promises) {
   })));
   return out;
 }
+
+// Todas las coincidencias de una expresión /g (sin depender de matchAll).
+export function allMatches(text, re) {
+  const out = [];
+  const r = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+  let m;
+  while ((m = r.exec(String(text || "")))) {
+    out.push(m);
+    if (m[0] === "") r.lastIndex++;
+  }
+  return out;
+}

@@ -93,6 +93,16 @@ async function settle(promises) {
   })));
   return out;
 }
+function allMatches(text, re) {
+  const out = [];
+  const r = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+  let m;
+  while (m = r.exec(String(text || ""))) {
+    out.push(m);
+    if (m[0] === "") r.lastIndex++;
+  }
+  return out;
+}
 
 // src/core/mapping.js
 var TMDB = "https://api.themoviedb.org/3";
@@ -340,7 +350,7 @@ function titleScore(siteTitle, ctx) {
   return best;
 }
 function cleanQuery(q) {
-  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+  return String(q || "").replace(/×/g, " x ").replace(/['’]/g, "").replace(/[^0-9A-Za-z\u00C0-\u024F]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function searchQueries(ctx, max = 3) {
   const out = [];
@@ -623,7 +633,7 @@ var HEADERS = { Referer: `${BASE}/` };
 async function search(q) {
   const html = await getText(`${BASE}/animes?buscar=${encodeURIComponent(q).replace(/%20/g, "+")}`, { headers: HEADERS });
   const out = [];
-  for (const m of html.matchAll(/ficha_efecto["'][^>]*>([\s\S]*?)<\/li>/gi)) {
+  for (const m of allMatches(html, /ficha_efecto["'][^>]*>([\s\S]*?)<\/li>/gi)) {
     const title = decodeHtml((m[1].match(/title=["']([^"']*)["']/) || [])[1] || "").replace(/^Ver Anime\s+/i, "").replace(/\s+Online Gratis$/i, "").trim();
     const slug = (m[1].match(/href=["'](?:\.|https?:\/\/[^/]+)?\/anime\/([^"'/]+)["']/) || [])[1];
     if (title && slug && !/latino|castellano|doblaje/i.test(title + slug)) out.push({ slug, title });
@@ -650,7 +660,7 @@ async function run(ctx) {
   });
   const opt = await res.text();
   const urls = [];
-  for (const m of opt.matchAll(/data-player=["']([^"']+)["']/g)) {
+  for (const m of allMatches(opt, /data-player=["']([^"']+)["']/g)) {
     try {
       const u = atob(m[1]).trim().replace(/^https?:\/\/monoschinos2\.com\/reproductor\?url=/, "");
       if (/^https?:\/\//.test(u) && isSupported(u) && !urls.includes(u)) urls.push(u);
