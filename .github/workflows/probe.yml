@@ -1,0 +1,14 @@
+name: probe
+on:
+  push:
+    paths: ["tools/probe*.json", "tools/probe.mjs", ".github/workflows/probe.yml"]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node tools/probe.mjs tools/probe.json
