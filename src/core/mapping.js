@@ -337,10 +337,21 @@ export function searchQueries(ctx, max = 3) {
 // concreta de AniList (romaji, inglés o sinónimos) y no solo con el nombre
 // general de la serie en TMDB: así "Spy x Family" no gana a "Spy x Family
 // Season 2" cuando se busca la segunda temporada.
+function strict(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/×/g, " x ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export function entryScore(siteTitle, ctx) {
-  const t = norm(siteTitle);
+  const t = strict(siteTitle);
   if (!t) return 0;
-  for (const c of [ctx.romaji, ctx.english, ...(ctx.synonyms || [])]) if (norm(c) === t) return 3;
+  // Comparación estricta: aquí "Season 2" y "Part 2" no son lo mismo.
+  for (const c of [ctx.romaji, ctx.english, ...(ctx.synonyms || [])]) if (strict(c) === t) return 3;
   return titleScore(siteTitle, ctx);
 }
 

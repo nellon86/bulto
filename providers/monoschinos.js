@@ -349,10 +349,13 @@ function searchQueries(ctx, max = 3) {
   if (base.length >= 3) add(base);
   return out.slice(0, max);
 }
+function strict(s) {
+  return String(s || "").toLowerCase().replace(/×/g, " x ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
 function entryScore(siteTitle, ctx) {
-  const t = norm(siteTitle);
+  const t = strict(siteTitle);
   if (!t) return 0;
-  for (const c of [ctx.romaji, ctx.english, ...ctx.synonyms || []]) if (norm(c) === t) return 3;
+  for (const c of [ctx.romaji, ctx.english, ...ctx.synonyms || []]) if (strict(c) === t) return 3;
   return titleScore(siteTitle, ctx);
 }
 function pickByTitle(lists, ctx) {
