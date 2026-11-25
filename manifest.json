@@ -1,6 +1,6 @@
 {
   "name": "Anime SUB (ES · IT · EN)",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "Anime subtitulado en español, italiano e inglés. Sin doblajes.",
   "author": "nellon86",
   "scrapers": [
@@ -8,11 +8,12 @@
       "id": "animeav1",
       "name": "🇪🇸 AnimeAV1",
       "description": "Anime en VOSE (subtitulado en español) desde AnimeAV1.",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/animeav1.js",
       "enabled": true,
@@ -30,11 +31,12 @@
       "id": "tioanime",
       "name": "🇪🇸 TioAnime",
       "description": "Anime en VOSE (subtitulado en español) desde TioAnime.",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/tioanime.js",
       "enabled": true,
@@ -52,11 +54,12 @@
       "id": "jkanime",
       "name": "🇪🇸 JKAnime",
       "description": "Anime en VOSE (subtitulado en español) desde JKAnime, con su servidor HLS propio.",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/jkanime.js",
       "enabled": true,
@@ -74,11 +77,12 @@
       "id": "monoschinos",
       "name": "🇪🇸 MonosChinos",
       "description": "Anime en VOSE (subtitulado en español) desde MonosChinos.",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/monoschinos.js",
       "enabled": true,
@@ -96,11 +100,12 @@
       "id": "animeworld",
       "name": "🇮🇹 AnimeWorld",
       "description": "Anime SUB ITA desde AnimeWorld (MP4 directo).",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/animeworld.js",
       "enabled": true,
@@ -118,11 +123,12 @@
       "id": "animesaturn",
       "name": "🇮🇹 AnimeSaturn",
       "description": "Anime SUB ITA desde AnimeSaturn.",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/animesaturn.js",
       "enabled": true,
@@ -140,11 +146,12 @@
       "id": "megaplay",
       "name": "🇬🇧 MegaPlay",
       "description": "Anime subtitulado en inglés desde MegaPlay (por ID de AniList/MAL).",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/megaplay.js",
       "enabled": true,
@@ -162,11 +169,12 @@
       "id": "reanime",
       "name": "🇬🇧 Reanime",
       "description": "Anime subtitulado en inglés desde Reanime (FlixCloud).",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/reanime.js",
       "enabled": true,
@@ -184,11 +192,12 @@
       "id": "anizone",
       "name": "🌐 AniZone",
       "description": "Anime con subtítulos en varios idiomas desde AniZone.",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
-        "tv"
+        "tv",
+        "anime"
       ],
       "filename": "providers/anizone.js",
       "enabled": true,

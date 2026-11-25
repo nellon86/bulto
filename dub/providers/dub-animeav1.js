@@ -289,7 +289,13 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
     let pick = candidates[0];
     let found = [];
     if (!pick) {
+      const zipHit = await aniZip("themoviedb_id", tmdbId);
+      const zm = zipHit && zipHit.mappings;
+      if (zm && zm.anilist_id) pick = { anilist: zm.anilist_id, myanimelist: zm.mal_id };
+    }
+    if (!pick) {
       found = await anilistSearch(tmdbOriginal || tmdbTitle, "movie");
+      if (!found.length && tmdbTitle !== tmdbOriginal) found = await anilistSearch(tmdbTitle, "movie");
       const byYear = found.find((m) => !year || !m.seasonYear || Math.abs(m.seasonYear - year) <= 1) || found[0];
       if (!byYear) return null;
       pick = { anilist: byYear.id, myanimelist: byYear.idMal };
@@ -310,8 +316,18 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
     }
   }
   if (!candidates.length) {
-    const found = await anilistSearch(tmdbOriginal || tmdbTitle, "tv");
-    candidates = found.slice(0, 4).map((m) => ({ anilist: m.id, myanimelist: m.idMal }));
+    const [zipHit, byOriginal, byTitle] = await Promise.all([
+      aniZip("themoviedb_id", tmdbId),
+      anilistSearch(tmdbOriginal || tmdbTitle, "tv"),
+      tmdbTitle && tmdbTitle !== tmdbOriginal ? anilistSearch(tmdbTitle, "tv") : Promise.resolve([])
+    ]);
+    const seen = /* @__PURE__ */ new Set();
+    const zm = zipHit && zipHit.mappings;
+    const list = [];
+    if (zm && zm.anilist_id) list.push({ anilist: zm.anilist_id, myanimelist: zm.mal_id });
+    for (const m of [...byOriginal.slice(0, 3), ...byTitle.slice(0, 3)]) list.push({ anilist: m.id, myanimelist: m.idMal });
+    candidates = list.filter((c) => c.anilist && !seen.has(c.anilist) && seen.add(c.anilist));
+    log("sin ARM:", candidates.map((c) => c.anilist).join(",") || "ninguno");
   }
   if (!candidates.length) return null;
   candidates.sort((a, b) => (a["thetvdb-season"] === S ? 0 : 1) - (b["thetvdb-season"] === S ? 0 : 1));

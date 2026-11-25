@@ -2,7 +2,7 @@
 import { build } from "esbuild";
 import fs from "node:fs";
 
-const pkgVersion = "1.4.7";
+const pkgVersion = "1.4.8";
 fs.mkdirSync("providers", { recursive: true });
 const banner = "// Generado desde src/ con tools/build.mjs. No editar a mano.\n";
 
@@ -50,7 +50,8 @@ for (const repo of repos) {
       description: p.description,
       version: pkgVersion,
       author: "nellon86",
-      supportedTypes: ["movie", "tv"],
+      // "anime": tipo de las fichas de algunos catálogos (AIOMetadata); sin él Nuvio no lanza los scrapers.
+      supportedTypes: ["movie", "tv", "anime"],
       filename: `providers/${p.id}.js`,
       enabled: true,
       hasSettings: false,
