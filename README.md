@@ -8,6 +8,7 @@ https://raw.githubusercontent.com/nellon86/bulto/nuvio-anilist/manifest.json
 
 - **Viendo** y **Pendientes**: las listas públicas de anime del usuario `Haku86`.
 - **Películas pendientes**.
+- **Para ti** y **Películas para ti**: sugerencias a partir de todo lo que has empezado o tienes en pendientes (sin usar tus notas), con recomendaciones de la comunidad de AniList ajustadas a tus géneros y etiquetas más frecuentes. No incluyen nada que ya esté en tus listas.
 - **Tendencias**, **temporada actual**, **Populares** (con filtro por género) y **Películas populares**.
 
 Los títulos usan IDs de IMDb (o `tmdb:` si no hay IMDb), así que tus addons y plugins de streams funcionan igual que con cualquier serie. Los títulos sin equivalencia en IMDb o TMDB no aparecen.

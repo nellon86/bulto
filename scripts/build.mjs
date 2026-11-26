@@ -63,7 +63,7 @@ async function fetchUserLists() {
   const data = await gql(
     `query ($user: String) {
       MediaListCollection(userName: $user, type: ANIME) {
-        lists { entries { status progress updatedAt media { ${MEDIA_FIELDS} } } }
+        lists { entries { status progress updatedAt media { ${MEDIA_FIELDS} tags { name rank } } } }
       }
     }`,
     { user: USER },
@@ -75,9 +75,136 @@ async function fetchUserLists() {
   }
   const entries = [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
   return {
+    all: entries,
     watching: entries.filter((e) => e.status === "CURRENT" || e.status === "REPEATING"),
     planning: entries.filter((e) => e.status === "PLANNING"),
   };
+}
+
+// ---------- Sugerencias "Para ti" ----------
+// Semillas: todo lo que el usuario ha empezado o añadido a pendientes, con el mismo peso
+// (las notas se ignoran a propósito). Candidatos: recomendaciones de la comunidad de esas
+// semillas, ajustadas por los géneros y etiquetas que más aparecen en sus listas y con una
+// ligera penalización a los títulos muy populares.
+
+const SEED_STATUSES = new Set(["CURRENT", "REPEATING", "COMPLETED", "PAUSED", "DROPPED", "PLANNING"]);
+const SEED_BATCH = 25;
+const RECS_PER_SEED = 10;
+const CANDIDATES_TO_FETCH = 200;
+const MOVIE_CANDIDATES_TO_FETCH = 100;
+const MIN_TAG_RANK = 60;
+
+function countAffinity(entries) {
+  const genres = new Map();
+  const tags = new Map();
+  for (const e of entries) {
+    for (const g of e.media.genres || []) genres.set(g, (genres.get(g) || 0) + 1);
+    for (const t of e.media.tags || []) {
+      if (t.rank >= MIN_TAG_RANK) tags.set(t.name, (tags.get(t.name) || 0) + 1);
+    }
+  }
+  const norm = (map) => {
+    const max = Math.max(1, ...map.values());
+    return new Map([...map].map(([k, v]) => [k, v / max]));
+  };
+  return { genres: norm(genres), tags: norm(tags) };
+}
+
+function affinityOf(media, aff) {
+  const g = media.genres || [];
+  const genreAff = g.length ? g.reduce((s, x) => s + (aff.genres.get(x) || 0), 0) / g.length : 0;
+  const t = (media.tags || []).filter((x) => x.rank >= MIN_TAG_RANK);
+  const tagAff = t.length
+    ? t.reduce((s, x) => s + (aff.tags.get(x.name) || 0) * (x.rank / 100), 0) / t.length
+    : 0;
+  return 0.6 * genreAff + 0.4 * tagAff;
+}
+
+async function fetchMediaByIds(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const data = await gql(
+      `query ($ids: [Int]) {
+        Page(perPage: 50) { media(id_in: $ids, type: ANIME) { ${MEDIA_FIELDS} } }
+      }`,
+      { ids: ids.slice(i, i + 50) },
+    );
+    out.push(...data.Page.media);
+  }
+  const byId = new Map(out.map((m) => [m.id, m]));
+  return ids.map((id) => byId.get(id)).filter(Boolean);
+}
+
+async function buildSuggestions(lists, mapping) {
+  const listIds = new Set(lists.all.map((e) => e.media.id));
+  // IDs de Nuvio (IMDb/TMDB) que ya están en alguna lista: evita sugerir otra temporada de algo conocido.
+  const knownMetaIds = new Set(
+    lists.all.map((e) => toMeta(e.media, mapping)?.id).filter(Boolean),
+  );
+  const seeds = lists.all.filter((e) => SEED_STATUSES.has(e.status));
+  const seedTitle = new Map(
+    seeds.map((e) => [e.media.id, e.media.title.english || e.media.title.romaji]),
+  );
+  const aff = countAffinity(seeds);
+
+  const cand = new Map();
+  for (let i = 0; i < seeds.length; i += SEED_BATCH) {
+    const ids = seeds.slice(i, i + SEED_BATCH).map((e) => e.media.id);
+    const data = await gql(
+      `query ($ids: [Int], $per: Int) {
+        Page(perPage: 50) {
+          media(id_in: $ids, type: ANIME) {
+            id
+            recommendations(perPage: $per, sort: RATING_DESC) {
+              nodes { rating mediaRecommendation {
+                id format status popularity isAdult genres tags { name rank }
+              } }
+            }
+          }
+        }
+      }`,
+      { ids, per: RECS_PER_SEED },
+    );
+    for (const seed of data.Page.media) {
+      for (const n of seed.recommendations?.nodes || []) {
+        const r = n.mediaRecommendation;
+        if (!r || n.rating <= 0 || listIds.has(r.id)) continue;
+        if (r.isAdult || r.format === "MUSIC" || r.status === "NOT_YET_RELEASED") continue;
+        const w = Math.log1p(n.rating);
+        const c = cand.get(r.id) || { media: r, score: 0, best: 0, reason: null };
+        c.score += w;
+        if (w > c.best) {
+          c.best = w;
+          c.reason = seedTitle.get(seed.id);
+        }
+        cand.set(r.id, c);
+      }
+    }
+  }
+
+  const scored = [...cand.values()]
+    .map((c) => ({
+      ...c,
+      final: (c.score * (0.5 + affinityOf(c.media, aff))) / Math.log10((c.media.popularity || 0) + 100),
+    }))
+    .sort((a, b) => b.final - a.final);
+  // Series y películas compiten por separado para que las películas no queden fuera.
+  const ranked = [
+    ...scored.filter((c) => c.media.format !== "MOVIE").slice(0, CANDIDATES_TO_FETCH),
+    ...scored.filter((c) => c.media.format === "MOVIE").slice(0, MOVIE_CANDIDATES_TO_FETCH),
+  ];
+
+  const full = await fetchMediaByIds(ranked.map((c) => c.media.id));
+  const reasonById = new Map(ranked.map((c) => [c.media.id, c.reason]));
+  const toMetas = (type) =>
+    finalize(
+      full
+        .map((m) => toMeta(m, mapping, type, { reason: reasonById.get(m.id) }))
+        .filter((m) => m && !knownMetaIds.has(m.id)),
+    ).slice(0, PAGE);
+
+  console.log(`Sugerencias: ${seeds.length} semillas, ${cand.size} candidatos`);
+  return { series: toMetas("series"), movies: toMetas("movie") };
 }
 
 async function fetchBrowse(vars, pages) {
@@ -164,6 +291,7 @@ function toMeta(media, mapping, wantType, extra = {}) {
   const tmdbSeason = !isMovie ? m.season?.tmdb : undefined;
 
   const lines = [];
+  if (extra.reason) lines.push(`Porque te interesó: ${extra.reason}`);
   if (extra.progress != null) {
     const total = media.episodes ? ` de ${media.episodes}` : "";
     const seasonTxt = tmdbSeason > 1 ? `Temporada ${tmdbSeason} · ` : "";
@@ -248,6 +376,8 @@ async function main() {
       format_not_in: ["MOVIE", "MUSIC"] }, GENRE_PAGES);
   }
 
+  const suggestions = await buildSuggestions(lists, mapping);
+
   const listMeta = (entries, type) =>
     finalize(entries.map((e) => toMeta(e.media, mapping, type, { progress: e.progress })));
   const plainMeta = (media, type) => finalize(media.map((x) => toMeta(x, mapping, type)));
@@ -259,6 +389,10 @@ async function main() {
       metas: listMeta(lists.planning, "series"), source: lists.planning.length },
     { type: "movie", id: "anilist-planning-movies", name: "Anime · Películas pendientes",
       metas: listMeta(lists.planning, "movie"), source: lists.planning.length },
+    { type: "series", id: "anilist-for-you", name: "Anime · Para ti",
+      metas: suggestions.series, source: suggestions.series.length },
+    { type: "movie", id: "anilist-for-you-movies", name: "Anime · Películas para ti",
+      metas: suggestions.movies, source: suggestions.movies.length },
     { type: "series", id: "anilist-trending", name: "Anime · Tendencias",
       metas: plainMeta(trending, "series"), source: trending.length },
     { type: "series", id: "anilist-season", name: `Anime · ${SEASON_ES[season]} ${year}`,
