@@ -12,7 +12,11 @@ export const HAS_TIMERS = typeof setTimeout === "function";
 // Sin temporizadores (TV), las peticiones van además una detrás de otra, así
 // que cada scraper prueba solo los mejores servidores.
 export function limitServers(list, max = 3) {
-  return HAS_TIMERS ? list : list.slice(0, max);
+  if (HAS_TIMERS) return list;
+  // Si ya se ha ido más de la mitad del plazo (p. ej. arranque en frío), solo
+  // el mejor servidor: mejor un enlace que ninguno.
+  if (budgetStart && Date.now() - budgetStart > 12000) return list.slice(0, 1);
+  return list.slice(0, max);
 }
 
 export function withTimeout(promise, ms, label) {
@@ -30,10 +34,17 @@ export function withTimeout(promise, ms, label) {
 //  - pasado el plazo no se empiezan peticiones nuevas;
 //  - un servidor que no conecta no se vuelve a intentar en la misma búsqueda.
 let deadline = 0;
+let budgetStart = 0;
+let requestCount = 0;
 const deadHosts = new Set();
 export function startBudget(ms) {
-  deadline = HAS_TIMERS ? 0 : Date.now() + ms;
+  budgetStart = Date.now();
+  deadline = HAS_TIMERS ? 0 : budgetStart + ms;
+  requestCount = 0;
   deadHosts.clear();
+}
+export function requestsSoFar() {
+  return requestCount;
 }
 
 export async function request(url, opts = {}) {
@@ -42,6 +53,7 @@ export async function request(url, opts = {}) {
     if (deadline && Date.now() > deadline) throw new Error("sin tiempo " + host);
     if (deadHosts.has(host)) throw new Error("no conecta " + host);
   }
+  requestCount++;
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const init = { method: opts.method || "GET", headers };
   if (opts.body !== undefined) init.body = opts.body;

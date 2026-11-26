@@ -29,7 +29,9 @@ module.exports = __toCommonJS(dub_tioanime_exports);
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 var HAS_TIMERS = typeof setTimeout === "function";
 function limitServers(list, max = 3) {
-  return HAS_TIMERS ? list : list.slice(0, max);
+  if (HAS_TIMERS) return list;
+  if (budgetStart && Date.now() - budgetStart > 12e3) return list.slice(0, 1);
+  return list.slice(0, max);
 }
 function withTimeout(promise, ms, label) {
   if (!HAS_TIMERS) return Promise.resolve(promise);
@@ -40,10 +42,17 @@ function withTimeout(promise, ms, label) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 var deadline = 0;
+var budgetStart = 0;
+var requestCount = 0;
 var deadHosts = /* @__PURE__ */ new Set();
 function startBudget(ms) {
-  deadline = HAS_TIMERS ? 0 : Date.now() + ms;
+  budgetStart = Date.now();
+  deadline = HAS_TIMERS ? 0 : budgetStart + ms;
+  requestCount = 0;
   deadHosts.clear();
+}
+function requestsSoFar() {
+  return requestCount;
 }
 async function request(url, opts = {}) {
   const host = origin(url);
@@ -51,6 +60,7 @@ async function request(url, opts = {}) {
     if (deadline && Date.now() > deadline) throw new Error("sin tiempo " + host);
     if (deadHosts.has(host)) throw new Error("no conecta " + host);
   }
+  requestCount++;
   const headers = Object.assign({ "User-Agent": UA }, opts.headers || {});
   const init = { method: opts.method || "GET", headers };
   if (opts.body !== void 0) init.body = opts.body;
@@ -272,10 +282,12 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
   if (!/^\d+$/.test(tmdbId)) return null;
   const S = Number(season) || 1;
   const E = Number(episode) || 1;
-  const [details, seasonData, armRaw] = await Promise.all([
+  const fast = !HAS_TIMERS;
+  const armReq = () => tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 6e3 });
+  const [details, seasonData, armFirst] = await Promise.all([
     tmdb(`/${isMovie ? "movie" : "tv"}/${tmdbId}`),
     isMovie ? Promise.resolve(null) : tmdb(`/tv/${tmdbId}/season/${S}`),
-    tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 6e3 })
+    fast ? Promise.resolve(void 0) : armReq()
   ]);
   if (!details) return null;
   const tmdbTitle = details.name || details.title || "";
@@ -287,6 +299,29 @@ async function resolveAnime(rawId, mediaType, season, episode, opts = {}) {
     log("no parece anime:", tmdbTitle);
     return null;
   }
+  if (fast) {
+    const zipHit = await aniZip("themoviedb_id", tmdbId);
+    const zm = zipHit && zipHit.mappings;
+    if (zm && zm.anilist_id) {
+      let ep = null;
+      if (isMovie) ep = 1;
+      else {
+        const target = seasonData && Array.isArray(seasonData.episodes) && seasonData.episodes.find((e) => e.episode_number === E);
+        if (target && target.air_date) {
+          const idx = seasonData.episodes.filter((e) => e.air_date === target.air_date && e.episode_number < E).length;
+          const sameDay = numericEpisodes(zipHit).filter((e) => dayDiff(e.airDate || e.airdate, target.air_date) <= 1);
+          if (sameDay.length) ep = sameDay[Math.min(idx, sameDay.length - 1)].key;
+        }
+      }
+      if (ep !== null) {
+        log("camino corto ani.zip");
+        const media2 = wantTitles ? await anilistBatch([zm.anilist_id]) : {};
+        const extra2 = { isMovie, tmdbTitle, tmdbOriginal, year, season: S, tmdbEpisode: isMovie ? void 0 : E };
+        return buildContext(zm.anilist_id, zm.mal_id, ep, zipHit, extra2, media2);
+      }
+    }
+  }
+  const armRaw = armFirst === void 0 ? await armReq() : armFirst;
   let candidates = (armRaw || []).filter((e) => e && e.anilist);
   if (isMovie) {
     let pick = candidates[0];
@@ -535,9 +570,9 @@ function defineProvider({ id, run, timeout = 25e3, titles = true }) {
     const lines = stopCapture().map((l) => l.replace(`[${id}] `, ""));
     const pick = (re) => lines.filter((l) => re.test(l));
     const rows = [
-      `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin l\xEDnea de mapeo"}`,
+      `1 ${HAS_TIMERS ? "timers" : "sin timers"} \xB7 ${pick(/^mapeo|^sin mapeo|^camino corto/).join(" ") || "sin l\xEDnea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin b\xFAsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms \xB7 ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms (${requestsSoFar()} peticiones) \xB7 ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`
     ];
     return rows.map((t, i) => ({
       name: `Diagn\xF3stico ${i + 1}`,
@@ -560,10 +595,10 @@ function defineProvider({ id, run, timeout = 25e3, titles = true }) {
       const ctx = await withTimeout(resolveAnime(tmdbId, mediaType, season, episode, { titles }), 15e3, "mapping");
       const tMap = Date.now() - t0;
       if (!ctx) {
-        log(`sin mapeo (${tMap} ms)`);
+        log(`sin mapeo (${tMap} ms, ${requestsSoFar()} peticiones)`);
         return [];
       }
-      log(`mapeo ${ctx.anilistId}/${ctx.malId} ep ${ctx.episode} ${ctx.romaji || ""} (${tMap} ms)`);
+      log(`mapeo ${ctx.anilistId}/${ctx.malId} ep ${ctx.episode} ${ctx.romaji || ""} (${tMap} ms, ${requestsSoFar()} peticiones)`);
       const streams = await withTimeout(Promise.resolve(run(ctx)), timeout, "scraper");
       const best = await Promise.all(
         (streams || []).filter(Boolean).map(

@@ -1,5 +1,5 @@
 import { resolveAnime } from "./mapping.js";
-import { setLogPrefix, log, withTimeout, getText, startCapture, stopCapture, HAS_TIMERS, startBudget } from "./http.js";
+import { setLogPrefix, log, withTimeout, getText, startCapture, stopCapture, HAS_TIMERS, startBudget, requestsSoFar } from "./http.js";
 import { dedupe, pickBestVariant } from "./streams.js";
 
 // Envuelve un scraper: resuelve el anime, llama al scraper y nunca lanza error.
@@ -22,9 +22,9 @@ export function defineProvider({ id, run, timeout = 25000, titles = true }) {
     const pick = (re) => lines.filter((l) => re.test(l));
     // La pantalla de prueba de Nuvio TV enseña solo 3 resultados.
     const rows = [
-      `1 ${HAS_TIMERS ? "timers" : "sin timers"} · ${pick(/^mapeo|^sin mapeo/).join(" ") || "sin línea de mapeo"}`,
+      `1 ${HAS_TIMERS ? "timers" : "sin timers"} · ${pick(/^mapeo|^sin mapeo|^camino corto/).join(" ") || "sin línea de mapeo"}`,
       `2 ${pick(/candidatos|servidores|ficha/).join(" | ") || "sin búsqueda"}`,
-      `3 fuentes ${out.length} en ${Date.now() - t0} ms · ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`,
+      `3 fuentes ${out.length} en ${Date.now() - t0} ms (${requestsSoFar()} peticiones) · ${pick(/error|failed|falla|tryText|tryJson|extractor|excepción|HTTP|timeout/).slice(0, 4).join(" | ") || "sin errores"}`,
     ];
     return rows.map((t, i) => ({
       name: `Diagnóstico ${i + 1}`,
@@ -51,10 +51,10 @@ export function defineProvider({ id, run, timeout = 25000, titles = true }) {
       const ctx = await withTimeout(resolveAnime(tmdbId, mediaType, season, episode, { titles }), 15000, "mapping");
       const tMap = Date.now() - t0;
       if (!ctx) {
-        log(`sin mapeo (${tMap} ms)`);
+        log(`sin mapeo (${tMap} ms, ${requestsSoFar()} peticiones)`);
         return [];
       }
-      log(`mapeo ${ctx.anilistId}/${ctx.malId} ep ${ctx.episode} ${ctx.romaji || ""} (${tMap} ms)`);
+      log(`mapeo ${ctx.anilistId}/${ctx.malId} ep ${ctx.episode} ${ctx.romaji || ""} (${tMap} ms, ${requestsSoFar()} peticiones)`);
       const streams = await withTimeout(Promise.resolve(run(ctx)), timeout, "scraper");
       // Siempre la máxima calidad disponible en las listas HLS con varias calidades.
       const best = await Promise.all(

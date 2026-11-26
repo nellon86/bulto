@@ -5,7 +5,7 @@
 // (episodios de cada entrada de AniList con su fecha y numeración TVDB).
 // No usa Jikan: desde algunas redes no conecta y retrasa todo.
 
-import { getJson, tryJson, log } from "./http.js";
+import { getJson, tryJson, log, HAS_TIMERS } from "./http.js";
 
 const TMDB = "https://api.themoviedb.org/3";
 const FALLBACK_TMDB_KEY = "439c478a771f35c05022f9feabcca01c";
@@ -184,11 +184,16 @@ export async function resolveAnime(rawId, mediaType, season, episode, opts = {})
   const S = Number(season) || 1;
   const E = Number(episode) || 1;
 
+  // En la tele (sin temporizadores) las peticiones van en fila: primero se
+  // prueba un camino corto con ani.zip por ID de TMDB, y ARM solo si hace falta.
+  const fast = !HAS_TIMERS;
+  const armReq = () => tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 6000 });
+
   // Primera ronda en paralelo: ficha de TMDB, temporada de TMDB y mapeo de ARM.
-  const [details, seasonData, armRaw] = await Promise.all([
+  const [details, seasonData, armFirst] = await Promise.all([
     tmdb(`/${isMovie ? "movie" : "tv"}/${tmdbId}`),
     isMovie ? Promise.resolve(null) : tmdb(`/tv/${tmdbId}/season/${S}`),
-    tryJson(`https://arm.haglund.dev/api/v2/themoviedb?id=${tmdbId}`, { timeout: 6000 }),
+    fast ? Promise.resolve(undefined) : armReq(),
   ]);
   if (!details) return null;
   const tmdbTitle = details.name || details.title || "";
@@ -200,6 +205,32 @@ export async function resolveAnime(rawId, mediaType, season, episode, opts = {})
     log("no parece anime:", tmdbTitle);
     return null;
   }
+
+  // Camino corto (tele): una sola entrada de ani.zip por ID de TMDB. Vale si es
+  // película o si un episodio suyo se emitió el mismo día que el pedido.
+  if (fast) {
+    const zipHit = await aniZip("themoviedb_id", tmdbId);
+    const zm = zipHit && zipHit.mappings;
+    if (zm && zm.anilist_id) {
+      let ep = null;
+      if (isMovie) ep = 1;
+      else {
+        const target = seasonData && Array.isArray(seasonData.episodes) && seasonData.episodes.find((e) => e.episode_number === E);
+        if (target && target.air_date) {
+          const idx = seasonData.episodes.filter((e) => e.air_date === target.air_date && e.episode_number < E).length;
+          const sameDay = numericEpisodes(zipHit).filter((e) => dayDiff(e.airDate || e.airdate, target.air_date) <= 1);
+          if (sameDay.length) ep = sameDay[Math.min(idx, sameDay.length - 1)].key;
+        }
+      }
+      if (ep !== null) {
+        log("camino corto ani.zip");
+        const media = wantTitles ? await anilistBatch([zm.anilist_id]) : {};
+        const extra = { isMovie, tmdbTitle, tmdbOriginal, year, season: S, tmdbEpisode: isMovie ? undefined : E };
+        return buildContext(zm.anilist_id, zm.mal_id, ep, zipHit, extra, media);
+      }
+    }
+  }
+  const armRaw = armFirst === undefined ? await armReq() : armFirst;
   let candidates = (armRaw || []).filter((e) => e && e.anilist);
 
   if (isMovie) {

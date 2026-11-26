@@ -1,6 +1,6 @@
 {
   "name": "Anime DOBLADO (ES · IT)",
-  "version": "1.4.8",
+  "version": "1.4.9",
   "description": "Anime doblado en castellano, latino e italiano; si no hay doblaje español, subtitulado en español.",
   "author": "nellon86",
   "scrapers": [
@@ -8,7 +8,7 @@
       "id": "dub-latanime",
       "name": "🇪🇸 LatAnime DUB",
       "description": "Doblaje castellano y latino desde LatAnime; si no hay, subtitulado en español.",
-      "version": "1.4.8",
+      "version": "1.4.9",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -31,7 +31,7 @@
       "id": "dub-animeav1",
       "name": "🇲🇽 AnimeAV1 DUB",
       "description": "Doblaje latino desde AnimeAV1; si no hay, subtitulado en español.",
-      "version": "1.4.8",
+      "version": "1.4.9",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -54,7 +54,7 @@
       "id": "dub-tioanime",
       "name": "🇪🇸 TioAnime SUB",
       "description": "Subtitulado en español desde TioAnime (no tiene doblajes).",
-      "version": "1.4.8",
+      "version": "1.4.9",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -77,7 +77,7 @@
       "id": "dub-animeworld",
       "name": "🇮🇹 AnimeWorld ITA",
       "description": "Doblaggio italiano desde AnimeWorld (MP4 directo).",
-      "version": "1.4.8",
+      "version": "1.4.9",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
@@ -100,7 +100,7 @@
       "id": "dub-animesaturn",
       "name": "🇮🇹 AnimeSaturn ITA",
       "description": "Doblaggio italiano desde AnimeSaturn.",
-      "version": "1.4.8",
+      "version": "1.4.9",
       "author": "nellon86",
       "supportedTypes": [
         "movie",
